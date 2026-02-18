@@ -16,23 +16,22 @@ MODS_CACHE.mkdir(parents=True, exist_ok=True)
 RP_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-# нода n2 - основная. Ф1 пока что запаска
 VERSION = "1.21.11"
 host = "play.cherry.pizza"
-backend = "https://f1.delonix.cc"
-backend1 = "https://8000.web.delonix.cc"
-news_url = "https://f1.delonix.cc:6443/news/news.json"
-news_url1 = "https://8000.web.delonix.cc/news/news.json"
+backend = ""
+backend1 = ""
+news_url = "n"
+news_url1 = ""
 
 default_port = "6443"
 default_port1 = "4017"
 
 external_ip_url = 'https://api.ipify.org?format=json'
 LAUNCHER_VERSION = "4.0"
-QUEUE_URL = "https://f1.delonix.cc:6443/queue"
-QUEUE_URL1 = "https://8000.web.delonix.cc/queue"
-PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/prac"
-ACTIVE_PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/active_prac"
+QUEUE_URL = ""
+QUEUE_URL1 = ""
+PRACTICE_QUEUE_URL = ""
+ACTIVE_PRACTICE_QUEUE_URL = ""
 
 
 
@@ -57,11 +56,11 @@ discord_test = "https://discord.com/oauth2/authorize?client_id=14186041424229173
 
 
 # ну типа отправка логов в дс, первая - дс фасика, вторая - дс практиса
-WEBHOOK_URL = "https://discord.com/api/webhooks/1433575386641596490/U6C30mVWy3_fstaXRpgC3aevEVdLhw1qQT8s1YefNc5UdgXO92w6I3r9oSlYcsGurl5R"
-LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1433883006233215139/TzDnGiGeJWspLN-AxmekKGWJ2ywZm1kz30fni4z3Z7OG0RGZw4VsxflhglMzqja5ZHy_"
+WEBHOOK_URL = ""
+LOGS_WEBHOOK_URL = ""
 
-WEBHOOK_URL2 = "https://discord.com/api/webhooks/1442090048076910635/kpQGDjN_kMsTtftov2_MXeQz-dC6M_t3aVI9N4B0UubHMFh6VSlpsIJqCq-W8BfpoCFK"
-LOGS_WEBHOOK_URL2 = "https://discord.com/api/webhooks/1442090141853159514/tdQ3C9ecLsz3ZlHefCwONfEnUsvKLtYgWdEa3mDhGq_nCPhE-ZH5uSZdVuRwXS9xycmK"
+WEBHOOK_URL2 = ""
+LOGS_WEBHOOK_URL2 = ""
 
 
 
