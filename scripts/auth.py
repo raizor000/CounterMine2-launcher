@@ -8,10 +8,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from PyQt6.QtCore import QObject, pyqtSignal
 
-TOKEN_URL = "https://auth.cherry.pizza/realms/cherrypizza/protocol/openid-connect/token"
+TOKEN_URL = ""
 CLIENT_ID = "frontend"
 REDIRECT_URI = "http://localhost:8080"
-GRAPHQL_URL = "https://cherry.pizza/api/graphql"
+GRAPHQL_URL = ""
 
 class AuthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
