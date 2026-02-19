@@ -1,7 +1,9 @@
-Ну типа лаунчер для CounterMine2 \n
+Ну типа лаунчер для CounterMine2 
+
+
 by raizor
-by __petryshka__
-by fyranixx
+by yanemoderator
+
 
 
 все ссылки были вырезаны в целях защиты от ддос и бот атаки
