@@ -3,17 +3,16 @@ import sys
 import urllib.parse
 import urllib.request
 import zipfile
-import os
 
-import pygame.mixer
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF
-from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDatabase, QBrush, QColor, QPalette
-from PyQt6.QtSvgWidgets import QSvgWidget
-from PyQt6.QtWidgets import QPushButton, QStackedLayout, QHBoxLayout, \
-    QGraphicsDropShadowEffect, QGridLayout, QScrollArea, QLineEdit, QTextBrowser, QSizePolicy, QGraphicsView, QGraphicsScene
+from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDatabase
 from PyQt6.QtMultimedia import QMediaPlayer
-from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem, QVideoWidget
+from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
+from PyQt6.QtSvgWidgets import QSvgWidget
+from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGraphicsDropShadowEffect, QGridLayout, QLineEdit, \
+    QTextBrowser, QSizePolicy, QGraphicsView, \
+    QGraphicsScene
 
 from .utilties import *
 
@@ -60,7 +59,6 @@ class ModSearchWorker(QObject):
                 self.finished.emit([])
 
 
-
 class LauncherUI(QWidget):
     play_clicked = pyqtSignal()
     reinstall_client = pyqtSignal()
@@ -71,6 +69,7 @@ class LauncherUI(QWidget):
     settings_changed = pyqtSignal(str, object)
     auth_login_clicked = pyqtSignal()
     auth_logout_clicked = pyqtSignal()
+    cleanup_clicked = pyqtSignal()
     quitSignal = pyqtSignal()
 
     def __init__(self, version, ip, lang, parent=None):
@@ -90,24 +89,17 @@ class LauncherUI(QWidget):
         self.news_data = []
         self.launcher = parent
         self.version = version
-        self.dynamic_bg = None
         self.ip = ip
         self.lang = lang
-        self.current_bg_index = 1
         self.mods_data = []
         self.mod_cards = {}
         self.mod_buttons = {}
         self.mod_labels = {}
-        self._toast_widgets = []
         self.shaders_data = []
         self.resourcepacks_data = []
-        self.shader_search_edit = QLineEdit()
-        self.resourcepack_search_edit = QLineEdit()
-        self.shader_cards = {}
         self.shader_buttons = {}
-        self.resourcepack_cards = {}
         self.resourcepack_buttons = {}
-        self.formalities_container = None
+        self.information_container = None
         self.moresettings_container = None
 
         self._build_ui()
@@ -119,37 +111,16 @@ class LauncherUI(QWidget):
             print("Media loaded, now play")
             self.media_player.play()
 
-
     def resource_path(self, relative_path):
         # Для петрушки - получаем из ексешки ассеты
         if hasattr(sys, "_MEIPASS"):
             return os.path.join(sys._MEIPASS, relative_path)
         return os.path.join(os.path.abspath("."), relative_path)
 
-
-
     def _build_ui(self):
         ww = 1024
         wh = 580
         self.setFixedSize(ww, wh)
-
-
-
-        # Fallback background
-        self.bg = QLabel(self)
-        self.pix = QPixmap(self.resource_path("assets/background.png"))
-        if not self.pix.isNull():
-            self.pix = self.pix.scaled(
-                ww,
-                wh,
-                Qt.AspectRatioMode.IgnoreAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-
-        self.bg.setPixmap(self.pix)
-        self.bg.setGeometry(0, 0, ww, wh)
-        self.bg.lower()
-        self.bg.hide()
 
         self.scene = QGraphicsScene(self)
         self.view = QGraphicsView(self.scene, self)
@@ -160,7 +131,7 @@ class LauncherUI(QWidget):
         self.view.setFrameShape(QFrame.Shape.NoFrame)
 
         self.video_item = QGraphicsVideoItem()
-        self.video_item.setSize(QSizeF(ww, wh))
+        self.video_item.setSize(QSizeF(ww, wh+2))
         self.scene.addItem(self.video_item)
 
         self.media_player = QMediaPlayer(self)
@@ -182,7 +153,6 @@ class LauncherUI(QWidget):
 
         self.media_player.mediaStatusChanged.connect(_on_media_status_changed)
 
-
         self.dim_layer = QFrame(self)
         self.dim_layer.setGeometry(0, 0, ww, wh)
         self.dim_layer.setStyleSheet("background-color: rgba(0, 0, 0, 0.7);")
@@ -194,7 +164,7 @@ class LauncherUI(QWidget):
 
         self.header_frame = QFrame(self)
         self.header_frame.setGeometry(0, 0, ww, 40)
-        self.header_frame.setStyleSheet("background-color: rgba(50,50,50,230);")
+        self.header_frame.setStyleSheet("background-color: rgba(50,50,50,190);")
 
         self.logo = QLabel(self.header_frame)
         self.logo_pix = QPixmap(self.resource_path("assets/logo.png"))
@@ -213,42 +183,40 @@ class LauncherUI(QWidget):
 
         self.tab_news_btn = QPushButton("Главная", self.header_frame)
         self.tab_news_btn.setGeometry(200, 5, 100, 30)
-        self.tab_news_btn.setStyleSheet(tabs_style)
+        self.tab_news_btn.setStyleSheet(tabs_style_new)
         self.tab_news_btn.setCheckable(True)
         self.tab_news_btn.setChecked(True)
         self.tab_news_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                            ))
 
         self.tab_mods_btn = QPushButton("Модпаки", self.header_frame)
         self.tab_mods_btn.setGeometry(310, 5, 100, 30)
-        self.tab_mods_btn.setStyleSheet(tabs_style)
+        self.tab_mods_btn.setStyleSheet(tabs_style_new)
         self.tab_mods_btn.setCheckable(True)
         self.tab_mods_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                            ))
 
         self.tab_installed_mods_btn = QPushButton("Установки", self.header_frame)
         self.tab_installed_mods_btn.setGeometry(420, 5, 100, 30)
-        self.tab_installed_mods_btn.setStyleSheet(tabs_style)
+        self.tab_installed_mods_btn.setStyleSheet(tabs_style_new)
         self.tab_installed_mods_btn.setCheckable(True)
         self.tab_installed_mods_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                                      ))
 
         self.tab_settings_btn = QPushButton("Настройки", self.header_frame)
         self.tab_settings_btn.setGeometry(530, 5, 100, 30)
-        self.tab_settings_btn.setStyleSheet(tabs_style)
+        self.tab_settings_btn.setStyleSheet(tabs_style_new)
         self.tab_settings_btn.setCheckable(True)
         self.tab_settings_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                                ))
 
-
-        self.separator_moretabs = QFrame(self.header_frame)
-        self.separator_moretabs.setFrameShape(QFrame.Shape.VLine)
-        self.separator_moretabs.setFrameShadow(QFrame.Shadow.Sunken)
-
-        self.separator_moretabs.setStyleSheet("background-color: #777;")
-        self.separator_moretabs.setFixedWidth(3)
-        self.separator_moretabs.setFixedHeight(self.logo.height())
-        self.separator_moretabs.setGeometry(self.tab_settings_btn.x() + self.tab_settings_btn.width() + 10, 8, 2, 24)
+        self.separator_ending = QFrame(self.header_frame)
+        self.separator_ending.setFrameShape(QFrame.Shape.VLine)
+        self.separator_ending.setFrameShadow(QFrame.Shadow.Sunken)
+        self.separator_ending.setStyleSheet("background-color: #777;")
+        self.separator_ending.setFixedWidth(3)
+        self.separator_ending.setFixedHeight(self.logo.height())
+        self.separator_ending.setGeometry(self.tab_settings_btn.x() + self.tab_settings_btn.width() + 10, 8, 2, 24)
 
         self.close_btn = QPushButton("✕", self.header_frame)
         self.close_btn.setGeometry(ww - 40, 5, 30, 30)
@@ -262,25 +230,25 @@ class LauncherUI(QWidget):
         self.close_btn.clicked.connect(self.quitSignal.emit)
         self.close_btn.raise_()
         self.close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                         ))
 
         self.min_btn = QPushButton("—", self.header_frame)
         self.min_btn.setGeometry(ww - 80, 5, 30, 30)
         self.min_btn.setFont(QFont("sans-serif", 11, QFont.Weight.Bold))
 
         self.min_btn.setStyleSheet("""
-                    QPushButton { background-color: transparent; color: yellow; border: none; }
+                    QPushButton { background-color: transparent; color: #fbac18; border: none; }
                     QPushButton:hover { color: gray; }
                 """)
         # noinspection PyUnresolvedReferences
         self.min_btn.clicked.connect(self.launcher.showMinimized)
         self.min_btn.raise_()
         self.min_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                       ))
 
         self.separator_min = QFrame(self.header_frame)
-        self.separator_moretabs.setFrameShape(QFrame.Shape.VLine)
-        self.separator_moretabs.setFrameShadow(QFrame.Shadow.Sunken)
+        self.separator_min.setFrameShape(QFrame.Shape.VLine)
+        self.separator_min.setFrameShadow(QFrame.Shadow.Sunken)
         self.separator_min.setStyleSheet("background-color: #777;")
         self.separator_min.setFixedWidth(3)
         self.separator_min.setFixedHeight(self.logo.height())
@@ -306,7 +274,7 @@ class LauncherUI(QWidget):
         self.fade_overlay.setStyleSheet("""
             background: qlineargradient(
                 x1:0, y1:1, x2:0, y2:0,        
-                stop:0 rgba(50,50,50,255),     
+                stop:0 rgba(50,50,50,180),     
                 stop:1 rgba(50,50,50,0)       
             );
             border: none;
@@ -318,7 +286,7 @@ class LauncherUI(QWidget):
         )
         self.fade_overlay.raise_()
         self.fade_overlay.setGeometry(
-            self.news_page.x() + 10,
+            self.news_page.x(),
             self.news_page.y() + self.news_page.height() - 50,
             self.news_page.width() - 10,
             50
@@ -328,7 +296,7 @@ class LauncherUI(QWidget):
         self.fade_overlay2.setStyleSheet("""
             background: qlineargradient(
                 x1:0, y1:0, x2:0, y2:1,
-                stop:0 rgba(50,50,50,255),
+                stop:0 rgba(50,50,50,180),
                 stop:1 rgba(50,50,50,0)
             );
             border: none;
@@ -384,8 +352,6 @@ class LauncherUI(QWidget):
         self.installed_mods_page.setWidget(self.installed_mods_content)
         installed_mods_container_layout.addWidget(self.installed_mods_page)
 
-
-
         self.settings_container = QFrame(self)
         self.settings_container.setGeometry(20, 40, ww - 40, mods_content_height)
         self.settings_container.setVisible(False)
@@ -408,12 +374,12 @@ class LauncherUI(QWidget):
         except Exception as e:
             print(e)
 
-        self.formalities_container = QFrame(self)
-        self.formalities_container.setGeometry(20, 40, ww - 40, mods_content_height)
-        self.formalities_container.setVisible(False)
-        self.formalities_container.setStyleSheet("background-color: transparent;")
+        self.information_container = QFrame(self)
+        self.information_container.setGeometry(20, 40, ww - 40, mods_content_height)
+        self.information_container.setVisible(False)
+        self.information_container.setStyleSheet("background-color: transparent;")
 
-        form_layout = QVBoxLayout(self.formalities_container)
+        form_layout = QVBoxLayout(self.information_container)
         form_layout.setContentsMargins(40, 40, 40, 40)
         form_layout.setSpacing(20)
 
@@ -427,7 +393,7 @@ class LauncherUI(QWidget):
 
         title = QLabel("Про продукт тут")
         title.setFixedHeight(42)
-        title.setStyleSheet("color: #ffffff; font-weight: bold;")
+        title.setStyleSheet("color: #ffffff; font-weight: bold; background: transparent;")
         title.setFont(QFont("sans-serif", 20))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         card_lay.addWidget(title)
@@ -451,14 +417,13 @@ class LauncherUI(QWidget):
         </p>
 
         <ul>
-        <li>Концепт, дизайн, логика и сборка — <span style="color:#6cf">raizor</span></li>
+        <li>Концепт, дизайн, логика, кодинг, 3D-Графика и сборка — <span style="color:#6cf">raizor</span></li>
         <li>API Очереди Практики — <span style="color:#6cf">__petryshka__</span></li>
         </ul>
         <p>А также, в ней раньше состояли следующие игроки:</p>
         <ul>
-        <li>API Очереди Faceit — <span style="color:#6cf">furanixx | (До версии 3.0)</span></li>
-        <li>Обои — <span style="color:#6cf">vladrompus | (До версии 3.3)</span></li>
-        <li>Пасхалки — <span style="color:#6cf">who1s_i | (До версии 3.3)</span></li>
+        <li>API Очереди Faceit — <span style="color:#6cf">furanixx  (До версии 3.0)</span></li>
+        <li>Обои — <span style="color:#6cf">vladrompus  (До версии 4.0)</span></li>
         </ul>
         
         <p style="color:#aaa">
@@ -529,24 +494,23 @@ class LauncherUI(QWidget):
         form_layout2.setSpacing(20)
 
         form_card2 = QFrame()
-        form_card2.setStyleSheet("background-color: rgba(50,50,50,200); border-radius:12px;")
+        form_card2.setStyleSheet("background-color: rgba(50,50,50,160); border-radius:12px;")
         form_card2.setMinimumHeight(400)
 
         card_lay2 = QVBoxLayout(form_card2)
         card_lay2.setContentsMargins(30, 30, 30, 30)
         card_lay2.setSpacing(18)
 
-        title2 = QLabel("Настройки")
-        title2.setFixedHeight(42)
-        title2.setStyleSheet("color: #ffffff; font-weight: bold;")
-        title2.setFont(QFont("sans-serif", 20))
-        title2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card_lay2.addWidget(title2)
-
+        self.more_settings_title = QLabel("Настройки")
+        self.more_settings_title.setFixedHeight(42)
+        self.more_settings_title.setStyleSheet("color: #ffffff; font-weight: bold; background: transparent;")
+        self.more_settings_title.setFont(QFont("sans-serif", 20))
+        self.more_settings_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_lay2.addWidget(self.more_settings_title)
 
         snow_layout = QHBoxLayout()
         self.snow_label = QLabel("Показать Снежинки ❄")
-        self.snow_label.setStyleSheet("color: #dddddd; font-size: 11pt;")
+        self.snow_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.snow_switch = SwitchButton()
         self.snow_switch.setFixedSize(52, 28)
         snow_layout.addWidget(self.snow_label)
@@ -556,7 +520,7 @@ class LauncherUI(QWidget):
 
         update_layout = QHBoxLayout()
         self.update_label = QLabel("Проверять наличие обновлений")
-        self.update_label.setStyleSheet("color: #dddddd; font-size: 11pt;")
+        self.update_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.update_switch = SwitchButton()
         self.update_switch.setFixedSize(52, 28)
         update_layout.addWidget(self.update_label)
@@ -566,7 +530,7 @@ class LauncherUI(QWidget):
 
         rpc_layout = QHBoxLayout()
         self.rpc_label = QLabel("Устанавливать статус в Discord")
-        self.rpc_label.setStyleSheet("color: #dddddd; font-size: 11pt;")
+        self.rpc_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.rpc_switch = SwitchButton()
         self.rpc_switch.setFixedSize(52, 28)
         rpc_layout.addWidget(self.rpc_label)
@@ -574,9 +538,19 @@ class LauncherUI(QWidget):
         rpc_layout.addWidget(self.rpc_switch)
         card_lay2.addLayout(rpc_layout)
 
+        style_layout = QHBoxLayout()
+        self.style_label = QLabel("Использовать новую цветовую тему")
+        self.style_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
+        self.style_switch = SwitchButton()
+        self.style_switch.setFixedSize(52, 28)
+        style_layout.addWidget(self.style_label)
+        style_layout.addStretch()
+        style_layout.addWidget(self.style_switch)
+        card_lay2.addLayout(style_layout)
+
         lang_layout = QHBoxLayout()
         self.lang_label = QLabel("Язык / Language")
-        self.lang_label.setStyleSheet("color: #dddddd; font-size: 11pt;")
+        self.lang_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.lang_dropdown = DropDown(["Русский", "English"])
         lang_layout.setContentsMargins(0, 8, 0, 8)
         lang_layout.setSpacing(10)
@@ -585,10 +559,15 @@ class LauncherUI(QWidget):
         lang_layout.addWidget(self.lang_dropdown)
         card_lay2.addLayout(lang_layout)
 
-
-
         # Для петрушки - подключаем все сигналы кнопок и переключателей настроек.
         # Для петрушки - Сигналы используем для того чтобы передавать данные между потоками
+
+        try:
+            self.style_switch.stateChanged.connect(
+                lambda checked: self.settings_changed.emit("style", checked)
+            )
+        except Exception as e:
+            print(e)
 
 
         try:
@@ -621,9 +600,9 @@ class LauncherUI(QWidget):
 
         card_lay2.addStretch()
 
-        back_btn2 = QPushButton("← Назад в настройки")
-        back_btn2.setFixedHeight(44)
-        back_btn2.setStyleSheet("""
+        self.more_settings_back_btn = QPushButton("← Назад в настройки")
+        self.more_settings_back_btn.setFixedHeight(44)
+        self.more_settings_back_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #444;
                         color: white;
@@ -632,8 +611,8 @@ class LauncherUI(QWidget):
                     }
                     QPushButton:hover { background-color: #555; }
                 """)
-        back_btn2.clicked.connect(lambda: self._switch_tab(2))
-        card_lay2.addWidget(back_btn2)
+        self.more_settings_back_btn.clicked.connect(lambda: self._switch_tab(2))
+        card_lay2.addWidget(self.more_settings_back_btn)
 
         form_layout2.addWidget(form_card2)
         form_layout2.addStretch()
@@ -658,8 +637,6 @@ class LauncherUI(QWidget):
 
         self._populate_mods([])
 
-
-
         # Для петрушки - подключаем кнопки переключения вкладок
 
         # noinspection PyUnresolvedReferences
@@ -681,7 +658,7 @@ class LauncherUI(QWidget):
         self.buttons_block = QFrame(self)
         self.buttons_block.setGeometry(self.width() - right_offset - (button_size + 24), block_top, button_size + 24,
                                        block_height + 20)
-        self.buttons_block.setStyleSheet("background-color: rgba(50,50,50,200); border-radius:10px; padding:2px;")
+        self.buttons_block.setStyleSheet("background-color: rgba(50,50,50,140); border-radius:10px; padding:2px;")
 
         icons = [("telegram.png", "https://t.me/countermine2"),
                  ("youtube.png", "https://www.youtube.com/@CounterMine2"),
@@ -695,14 +672,24 @@ class LauncherUI(QWidget):
             btn.setIcon(ico)
             btn.setIconSize(QSize(button_size, button_size))
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                  ))
             # noinspection PyUnresolvedReferences
             btn.clicked.connect(lambda checked=False, url=link: QDesktopServices.openUrl(QUrl(url)))
-            btn.setStyleSheet("border:none; background:#323232;")
+            btn.setStyleSheet("border:none; background-color: rgba(50,50,50,140); border-radius: 2px;")
             btn.setToolTip(str(icon.replace(".png", "")))
 
+        self.cleanup_btn = QPushButton(self.buttons_block)
+        self.cleanup_btn.setGeometry(12, block_height - 2 * button_size - spacing + 9, button_size, button_size)
+        self.cleanup_btn.setIcon(QIcon(self.resource_path("assets/cleanup.png")))
+        self.cleanup_btn.setIconSize(QSize(button_size, button_size))
+        # noinspection PyUnresolvedReferences
+        self.cleanup_btn.clicked.connect(lambda: self.cleanup_clicked.emit())
+        self.cleanup_btn.setStyleSheet("border:none; background:#323232;")
+        self.cleanup_btn.setToolTip("ОЧИСТИТЬ КЭШ")
+        self.cleanup_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
         self.reinstall_btn = QPushButton(self.buttons_block)
-        self.reinstall_btn.setGeometry(12, block_height - button_size, button_size, button_size)
+        self.reinstall_btn.setGeometry(12, block_height - button_size + 9, button_size, button_size)
         self.reinstall_btn.setIcon(QIcon(self.resource_path("assets/reinstall.png")))
         self.reinstall_btn.setIconSize(QSize(button_size, button_size))
         # noinspection PyUnresolvedReferences
@@ -710,14 +697,14 @@ class LauncherUI(QWidget):
         self.reinstall_btn.setStyleSheet("border:none; background:#323232;")
         self.reinstall_btn.setToolTip("ПЕРЕУСТАНОВИТЬ КЛИЕНТ")
         self.reinstall_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                             ))
 
         self.waitlist = QWidget(self)
         self.waitlist.setFixedWidth(280)
         self.waitlist.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.waitlist.setStyleSheet("""
             QWidget {
-                background-color: rgba(40, 40, 40, 180);
+                background-color: rgba(40, 40, 40, 100);
                 border-radius: 10px;
                 border: 1px solid rgba(255, 255, 255, 40);
             }
@@ -733,7 +720,7 @@ class LauncherUI(QWidget):
         header_layout.setSpacing(8)
 
         self.faceit_title_label = QLabel("Очередь Faceit")
-        self.faceit_title_label.setStyleSheet("font-weight: bold; font-size: 13pt; color: #f0f0f0;border: 0px;")
+        self.faceit_title_label.setStyleSheet("font-weight: bold; font-size: 13pt; color: #f0f0f0;border: 0px; background: transparent;")
         header_layout.addWidget(self.faceit_title_label)
         header_layout.addStretch()
 
@@ -751,24 +738,19 @@ class LauncherUI(QWidget):
             QPushButton:hover { background: rgba(255,255,255,35); }
         """)
         self.toggle_faceit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                                 ))
         header_layout.addWidget(self.toggle_faceit_btn)
         wait_layout.addLayout(header_layout)
 
         self.faceit_content = QWidget()
+        self.faceit_content.setStyleSheet("background: transparent; border: 0px;")
         faceit_content_layout = QVBoxLayout(self.faceit_content)
         faceit_content_layout.setContentsMargins(0, 5, 0, 10)
         faceit_content_layout.setSpacing(8)
 
-        self.queue_label = QLabel("")
-        self.queue_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.queue_label.setStyleSheet("font-size: 15pt; letter-spacing: -2px;border: 0px;")
-        faceit_content_layout.addWidget(self.queue_label)
-        self.queue_label.hide()
-
         self.names_label = QLabel(
             "Фураникс не оплатил хост. А нам лень убирать данный блок. Так что мы разместим здесь бананчика вованчика")
-        self.names_label.setStyleSheet("color: #dddddd; font-size: 10pt;border: 0px;")
+        self.names_label.setStyleSheet("color: #dddddd; font-size: 10pt;border: 0px;  background: transparent;")
         self.names_label.setWordWrap(True)
         faceit_content_layout.addWidget(self.names_label)
 
@@ -782,7 +764,7 @@ class LauncherUI(QWidget):
 
         self.counter_label = QLabel("Без обид бананчик, мы тебя любим ❤")
         self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;border: 0px;")
+        self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;border: 0px;  background: transparent;")
         faceit_content_layout.addWidget(self.counter_label)
 
         wait_layout.addWidget(self.faceit_content)
@@ -802,6 +784,7 @@ class LauncherUI(QWidget):
         self.waitlist.move(x_pos, y_pos)
         self.waitlist.setFixedHeight(56)
         self.waitlist.raise_()
+        self.waitlist.hide()
 
         shadow1 = QGraphicsDropShadowEffect()
         shadow1.setBlurRadius(22)
@@ -831,24 +814,25 @@ class LauncherUI(QWidget):
         self.toggle_prac_btn.setFixedSize(28, 28)
         self.toggle_prac_btn.setStyleSheet(self.toggle_faceit_btn.styleSheet())
         self.toggle_prac_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                               ))
         prac_header.addWidget(self.toggle_prac_btn)
         prac_layout.addLayout(prac_header)
 
         self.prac_content = QWidget()
+        self.prac_content.setStyleSheet("background: transparent; border: 0px;")
         prac_content_layout = QVBoxLayout(self.prac_content)
         prac_content_layout.setContentsMargins(0, 8, 0, 10)
         prac_content_layout.setSpacing(6)
 
         self.prac_header_label = QLabel("Никто из команд не ищет прак")
         self.prac_header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.prac_header_label.setStyleSheet("color: #cccccc; font-size: 12pt;border: 0px;")
+        self.prac_header_label.setStyleSheet("color: #cccccc; font-size: 12pt;border: 0px;  background: transparent;")
         self.prac_header_label.setWordWrap(True)
         prac_content_layout.addWidget(self.prac_header_label)
 
         self.prac_status_label = QLabel("Сейчас нету активных праков")
         self.prac_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.prac_status_label.setStyleSheet("color: #999999; font-size: 11pt;border: 0px;")
+        self.prac_status_label.setStyleSheet("color: #999999; font-size: 11pt;border: 0px;  background: transparent;")
         self.prac_status_label.setWordWrap(True)
         prac_content_layout.addWidget(self.prac_status_label)
 
@@ -874,7 +858,7 @@ class LauncherUI(QWidget):
         ofw, ofh = 231, 64
         self.online_frame = QFrame(self)
         self.online_frame.setGeometry(28, self.height() - ofh - 10, ofw, ofh)
-        self.online_frame.setStyleSheet("background-color:#323232; border-radius:8px;")
+        self.online_frame.setStyleSheet("background-color: rgba(50,50,50,190); border-radius:8px;")
         online_layout = QHBoxLayout(self.online_frame)
         online_layout.setContentsMargins(10, 5, 10, 5)
         online_layout.setSpacing(15)
@@ -883,6 +867,9 @@ class LauncherUI(QWidget):
         self.static_pixmap = QPixmap(self.resource_path("assets/online_static.png")).scaled(55, 50)
         self.movie = QMovie(self.resource_path("assets/online_animation.gif"))
         self.movie.setScaledSize(QSize(55, 50))
+
+        self.online_gif_label.setStyleSheet("background: transparent;")
+
 
         self.online_gif_label.setPixmap(self.static_pixmap)
         online_layout.addWidget(self.online_gif_label)
@@ -903,20 +890,20 @@ class LauncherUI(QWidget):
         self.online_frame.leaveEvent = on_leave
 
         self.online_label = QLabel(t(self.lang, "online_label").format(count="-"), self.online_frame)
-        self.online_label.setStyleSheet("color:white; font-weight:bold;")
+        self.online_label.setStyleSheet("color:white; font-weight:bold; background: transparent;")
         self.online_label.setFont(QFont("sans-serif", 11))
         online_layout.addWidget(self.online_label)
 
         pifw, pifh = 80, 64
         self.ping_frame = QFrame(self)
         self.ping_frame.setGeometry(268, self.height() - pifh - 10, pifw, pifh)
-        self.ping_frame.setStyleSheet("background-color:#323232; border-radius:8px;")
+        self.ping_frame.setStyleSheet("background-color: rgba(50,50,50,190); border-radius:8px; ")
         ping_layout = QHBoxLayout(self.ping_frame)
         ping_layout.setContentsMargins(10, 5, 10, 5)
         ping_layout.setSpacing(15)
 
         self.ping_label = QLabel(f"- {t(self.lang, 'ms_locale')}", self.ping_frame)
-        self.ping_label.setStyleSheet("color:white; font-weight:bold;")
+        self.ping_label.setStyleSheet("color:white; font-weight:bold; background: transparent;")
         self.ping_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.ping_label.setFont(QFont("sans-serif", 10))
         ping_layout.addWidget(self.ping_label)
@@ -934,7 +921,7 @@ class LauncherUI(QWidget):
         self.play_btn = QPushButton("Играть", self.play_frame)
         self.play_btn.setGeometry(0, 0, pfw, pfh)
         self.play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                        ))
         self.play_btn.setFont(QFont("sans-serif", 13, QFont.Weight.Bold))
         self.play_btn.setStyleSheet("""
             QPushButton { background-color: #45A049; color:white; border-radius:10px; }
@@ -944,7 +931,6 @@ class LauncherUI(QWidget):
         # noinspection PyUnresolvedReferences
         self.play_btn.clicked.connect(self.play_clicked.emit)
         self.play_frame.raise_()
-
 
     def update_faceit_height(self):
         if not self.faceit_expanded:
@@ -965,7 +951,6 @@ class LauncherUI(QWidget):
 
         if self.faceit_expanded:
             target_faceit_height = max(self.waitlist.sizeHint().height(), 120)
-            pygame.mixer.music.play(loops=67)
 
             self.prac_expanded = False
             self.prac_content.setVisible(self.prac_expanded)
@@ -978,7 +963,6 @@ class LauncherUI(QWidget):
             self.prac_content.setVisible(self.prac_expanded)
             self.toggle_prac_btn.setText("−" if self.prac_expanded else "+")
             self.update_practice_position()
-            pygame.mixer.music.stop()
 
         gap = 12
         target_practice_y = self.waitlist.y() + target_faceit_height + gap
@@ -1007,7 +991,7 @@ class LauncherUI(QWidget):
 
     def toggle_practice_widget(self):
         self.prac_expanded = not self.prac_expanded
-        self.prac_content.setVisible(self.prac_expanded)
+
         self.toggle_prac_btn.setText("−" if self.prac_expanded else "+")
 
         if self.prac_expanded:
@@ -1031,20 +1015,26 @@ class LauncherUI(QWidget):
         self.anim_height2_prac.setEndValue(max_h)
         self.anim_height2_prac.setEasingCurve(QEasingCurve.Type.OutCubic)
 
+        self.anim_height3_prac = QPropertyAnimation(self.prac_content, b"maximumHeight")
+        self.anim_height3_prac.setDuration(260)
+        self.anim_height3_prac.setStartValue(self.prac_content.maximumHeight())
+        self.anim_height3_prac.setEndValue(0 if not self.prac_expanded else 300)
+        self.anim_height3_prac.setEasingCurve(QEasingCurve.Type.OutCubic)
+
         self.anim_height1_prac.start()
         self.anim_height2_prac.start()
+        self.anim_height3_prac.start()
 
     def update_practice_position(self):
         base_y = self.waitlist.y()
-        faceit_h = self.waitlist.height()
         gap = 12
-        new_y = base_y + faceit_h + gap
+        new_y = base_y
         self.practice_widget.move(self.waitlist.x(), new_y)
 
         if self.prac_expanded:
-            self.practice_widget.setMinimumHeight(140)
-            self.practice_widget.setMaximumHeight(800)
-            self.practice_widget.adjustSize()
+            self.practice_widget.setMinimumHeight(125)
+            self.practice_widget.setMaximumHeight(300)
+            # self.practice_widget.adjustSize()
         else:
             self.practice_widget.setFixedHeight(56)
 
@@ -1069,7 +1059,7 @@ class LauncherUI(QWidget):
         layout.setSpacing(12)
 
         self.about_title = QLabel("Немного про лаунчер")
-        self.about_title.setStyleSheet("color: white; font-weight: bold;")
+        self.about_title.setStyleSheet("color: white; font-weight: bold; background: transparent;")
         self.about_title.setFont(QFont("sans-serif", 16))
         self.about_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.about_title)
@@ -1079,16 +1069,14 @@ class LauncherUI(QWidget):
             "В лаунчере не было и не будет рекламы, так что проект остается полностью неоплачиваемым.\n\n"
         )
         self.main_label = QLabel(about_main_text)
-        self.main_label.setStyleSheet("color: #dddddd; font-size: 12pt;")
+        self.main_label.setStyleSheet("color: #dddddd; font-size: 12pt; background: transparent;")
         self.main_label.setFont(QFont("sans-serif", 10))
         self.main_label.setWordWrap(True)
-        self.main_label.setAlignment(Qt.AlignmentFlag.AlignTop| Qt.AlignmentFlag.AlignLeft)
+        self.main_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.main_label)
 
-
-
         self.more_title2 = QLabel("Настройки")
-        self.more_title2.setStyleSheet("color: white; font-weight: bold;")
+        self.more_title2.setStyleSheet("color: white; font-weight: bold; background: transparent;")
         self.more_title2.setFont(QFont("sans-serif", 13))
         self.more_title2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.more_title2)
@@ -1097,17 +1085,17 @@ class LauncherUI(QWidget):
         self.more_btn.setFixedHeight(42)
         self.more_btn.setStyleSheet("""
                         QPushButton {
-                            background-color: #2a6da0;
+                            background-color: #fbac18;
                             color: white;
                             border-radius: 8px;
                             font-weight: bold;
                             font-size: 13px;
                         }
                         QPushButton:hover {
-                            background-color: #3579b0;
+                            background-color: #e69500;
                         }
                         QPushButton:pressed {
-                            background-color: #1e5585;
+                            background-color: #b36f00;
                         }
                     """)
         self.more_btn.clicked.connect(lambda: self._switch_to_moresettings_page())
@@ -1115,7 +1103,7 @@ class LauncherUI(QWidget):
         layout.addWidget(self.more_btn)
 
         self.more_title = QLabel("Всякие интересные штуки")
-        self.more_title.setStyleSheet("color: white; font-weight: bold;")
+        self.more_title.setStyleSheet("color: white; font-weight: bold; background: transparent;")
         self.more_title.setFont(QFont("sans-serif", 13))
         self.more_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.more_title)
@@ -1124,25 +1112,24 @@ class LauncherUI(QWidget):
         self.formalities_btn.setFixedHeight(42)
         self.formalities_btn.setStyleSheet("""
                         QPushButton {
-                            background-color: #2a6da0;
+                            background-color: #fbac18;
                             color: white;
                             border-radius: 8px;
                             font-weight: bold;
                             font-size: 13px;
                         }
                         QPushButton:hover {
-                            background-color: #3579b0;
+                            background-color: #e69500;
                         }
                         QPushButton:pressed {
-                            background-color: #1e5585;
+                            background-color: #b36f00;
                         }
                     """)
         self.formalities_btn.clicked.connect(lambda: self._switch_to_formalities_page())
         layout.addWidget(self.formalities_btn)
 
-
-        self.tech_info_label = QLabel(f"version: {self.version} | ")
-        self.tech_info_label.setStyleSheet("color: #999999; font-size: 10pt;")
+        self.tech_info_label = QLabel(f"version: {self.version} by raizor ")
+        self.tech_info_label.setStyleSheet("color: #999999; font-size: 10pt; background: transparent;")
         self.tech_info_label.setFont(QFont("sans-serif", 9))
         self.tech_info_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.tech_info_label)
@@ -1153,7 +1140,7 @@ class LauncherUI(QWidget):
     def _switch_to_formalities_page(self):
         self.settings_container.setVisible(False)
         self.dim_layer.setVisible(True)
-        self.formalities_container.setVisible(True)
+        self.information_container.setVisible(True)
         self.tab_settings_btn.setChecked(True)
 
     def _switch_to_moresettings_page(self):
@@ -1191,7 +1178,7 @@ class LauncherUI(QWidget):
         if event.type() == event.Type.MouseButtonPress:
             if hasattr(self, 'logout_menu') and self.logout_menu.isVisible():
                 if not self.logout_menu.geometry().contains(event.pos()) and \
-                   not self.nick_scroll.geometry().contains(event.pos()):
+                        not self.nick_scroll.geometry().contains(event.pos()):
                     self.logout_menu.hide()
         return super().eventFilter(obj, event)
 
@@ -1216,31 +1203,23 @@ class LauncherUI(QWidget):
         layout.setSpacing(15)
 
         self.settings_title = QLabel("Аккаунт")
-        self.settings_title.setStyleSheet("color: white; font-weight: bold;")
+        self.settings_title.setStyleSheet("color: white; font-weight: bold; background: transparent;")
         self.settings_title.setFont(QFont("sans-serif", 16))
         self.settings_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.settings_title)
 
         def cherry():
             lbl = QLabel()
-            pix = QPixmap(self.resource_path("assets/cherry.png")).scaled(22, 22, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix = QPixmap(self.resource_path("assets/cherry.png")).scaled(22, 22, Qt.AspectRatioMode.KeepAspectRatio,
+                                                                          Qt.TransformationMode.SmoothTransformation)
             lbl.setPixmap(pix)
             return lbl
-
-        def human_icon():
-            svg_data = b'''<svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M9 0H15V1.5H16.5V3H18V9H16.5V10.5H15V12H9V10.5H7.5V9H6V3H7.5V1.5H9V0ZM10.5 7.5V9H13.5V7.5H15V4.5H13.5V3H10.5V4.5H9V7.5H10.5ZM6 13.5H18V15H21V16.5H22.5V18H24V24H0V18H1.5V16.5H3V15H6V13.5ZM4.5 19.5H3V21H21V19.5H19.5V18H16.5V16.5H7.5V18H4.5V19.5Z" fill="currentColor"/>
-            </svg>'''
-            widget = QSvgWidget()
-            widget.load(svg_data)
-            widget.setFixedSize(22, 22)
-            return widget
 
         top = QFrame()
         top.setFixedHeight(60)
         top.setStyleSheet("""
                QFrame {
-                   background-color: #2b2f32;
+                   background-color: rgba(50,50,50,200);
                    border-radius: 6px;
                }
            """)
@@ -1278,15 +1257,14 @@ class LauncherUI(QWidget):
         font2.setWeight(QFont.Weight.DemiBold)
         font2.setPixelSize(20)
 
-
         self.top = top
         self.balance_frame = balance_frame
 
-        self.nick_scroll = ScrollingNick("ебик раизор", 0)
+        self.nick_scroll = ScrollingNick("", 0)
         self.nick_scroll.label1.setFont(font)
         self.nick_scroll.label2.setFont(font)
         self.nick_scroll.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                           ))
         self.nick_scroll.mousePressEvent = lambda e: self._toggle_logout_menu()
 
         text_width = self.nick_scroll.label1.sizeHint().width()
@@ -1296,8 +1274,7 @@ class LauncherUI(QWidget):
         t.addWidget(self.nick_scroll, stretch=1)
         t.addStretch()
 
-
-        self.status = QLabel("MODERATOR")
+        self.status = QLabel("")
         self.status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status.setFixedSize(140, 45)
         self.status.setStyleSheet("""
@@ -1305,7 +1282,7 @@ class LauncherUI(QWidget):
             padding-left: 2px;
             color: white;
             font-weight: bold;
-            background-color: #fbac18;  /* основной фон */
+            background-color: #fbac18; 
             border-top: 4px solid #ffcd45;
             border-bottom: 4px solid #6f5909;
             border-radius: 0px;
@@ -1324,7 +1301,7 @@ class LauncherUI(QWidget):
         bottom.setFixedHeight(60)
         bottom.setStyleSheet("""
                QFrame {
-                   background-color: #2b2f32;
+                   background-color: rgba(50,50,50,200);
                    border-radius: 6px;
                }
            """)
@@ -1354,7 +1331,7 @@ class LauncherUI(QWidget):
         self.auth_login_btn.setFixedHeight(36)
         self.auth_login_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.auth_login_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                              ))
         self.auth_login_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2f46a3;
@@ -1368,20 +1345,21 @@ class LauncherUI(QWidget):
         btn_layout.setContentsMargins(10, 0, 10, 0)
         btn_layout.setSpacing(6)
         btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        svg_data = b'''<svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff">
+        svg_data = b'''<svg width="24" height="24" viewBox="0 0 24 24" fill="#fbac18">
         <path d="M9 0H15V1.5H16.5V3H18V9H16.5V10.5H15V12H9V10.5H7.5V9H6V3H7.5V1.5H9V0ZM10.5 7.5V9H13.5V7.5H15V4.5H13.5V3H10.5V4.5H9V7.5H10.5ZM6 13.5H18V15H21V16.5H22.5V18H24V24H0V18H1.5V16.5H3V15H6V13.5ZM4.5 19.5H3V21H21V19.5H19.5V18H16.5V16.5H7.5V18H4.5V19.5Z" fill="currentColor"/>
-        </svg>''' #тупо с сайта черепицы взял свгшку
-        svg_data = svg_data.replace(b'currentColor', b'#ffffff')
+        </svg>'''  # тупо с сайта черепицы взял свгшку
+        svg_data = svg_data.replace(b'currentColor', b'#fbac18')
         human = QSvgWidget()
         human.load(svg_data)
         human.setStyleSheet("color: white;")
         human.setFixedSize(16, 16)
 
-        label = QLabel("ВХОД")
-        label.setStyleSheet("color: white; font-weight: bold; font-size: 14px; text-transform: uppercase;background:transparent;")
+        self.auth_login_label = QLabel("ВХОД")
+        self.auth_login_label.setStyleSheet(
+            "color: white; font-weight: bold; font-size: 14px; text-transform: uppercase;background:transparent;")
         btn_layout.addStretch()
         btn_layout.addWidget(human)
-        btn_layout.addWidget(label)
+        btn_layout.addWidget(self.auth_login_label)
         btn_layout.addStretch()
         self.auth_login_btn.clicked.connect(self.auth_login_clicked.emit)
 
@@ -1433,7 +1411,7 @@ class LauncherUI(QWidget):
         self.logout_menu_btn = QPushButton("Выйти")
         self.logout_menu_btn.setFixedHeight(30)
         self.logout_menu_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-))
+                                               ))
         self.logout_menu_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -1463,7 +1441,7 @@ class LauncherUI(QWidget):
                 padding-left: 2px;
                 color: white;
                 font-weight: bold;
-                background-color: #fbac18;  /* основной фон */
+                background-color: #fbac18;
                 border-top: 4px solid #ffcd45;
                 border-bottom: 4px solid #6f5909;
                 border-radius: 0px;
@@ -1492,7 +1470,7 @@ class LauncherUI(QWidget):
                 if is_prime:
                     role = "PRIME"
                 else:
-                    role = "USER"
+                    role = " "
 
             self.nick_scroll.setText(nick)
             self.set_profile_status(role, balance)
@@ -1511,17 +1489,16 @@ class LauncherUI(QWidget):
                 t_type = node.get("type", "").upper()
                 stats_map[t_type] = node.get("total", 0)
 
-
             desired_stats = [
-                 "KILL", "DEATH", "PLAYTIME",
-                 "SHOOT", "BOMB_PLANT", "BOMB_DEFUSE",
+                "KILL", "DEATH", "PLAYTIME",
+                "SHOOT", "BOMB_PLANT", "BOMB_DEFUSE",
             ]
 
             row, col = 0, 0
             for stat_key in desired_stats:
                 val = stats_map.get(stat_key, "-")
                 if val != "-":
-                     val = str(val)
+                    val = str(val)
 
                 display_key = stat_key.lower()
 
@@ -1550,16 +1527,16 @@ class LauncherUI(QWidget):
                 self.stats_grid.itemAt(i).widget().setParent(None)
 
             desired_stats = [
-                 "KILL", "DEATH", "PLAYTIME",
-                 "SHOOT", "BOMB_PLANT", "BOMB_DEFUSE",
+                "KILL", "DEATH", "PLAYTIME",
+                "SHOOT", "BOMB_PLANT", "BOMB_DEFUSE",
             ]
             row, col = 0, 0
             for stat_key in desired_stats:
                 self._create_stat_card(row, col, f"{stat_key.lower()}: -")
                 col += 1
                 if col >= 2:
-                     col = 0
-                     row += 1
+                    col = 0
+                    row += 1
 
             self._create_stat_card(row, 0, "KD: - | - HOURS", colspan=2)
 
@@ -1586,8 +1563,8 @@ class LauncherUI(QWidget):
         lbl = QLabel(text.upper())
         lbl.setStyleSheet("""
             color: #d6d3d1; 
-            font-weight: 600; /* font-semibold */
-            font-size: 13px;  /* text-sm */
+            font-weight: 600; 
+            font-size: 13px;  
             background: transparent;
             border: none;
         """)
@@ -1609,29 +1586,19 @@ class LauncherUI(QWidget):
             self.play_frame.setVisible(index == 0)
             self.online_frame.setVisible(index == 0)
             self.practice_widget.setVisible(index == 0)
-            if hasattr(self, 'formalities_container'):
-                self.formalities_container.setVisible(False)
-            if hasattr(self, 'moresettings_container'):
-                self.moresettings_container.setVisible(False)
+            self.information_container.setVisible(False)
+            self.moresettings_container.setVisible(False)
             try:
                 if index == 0:
-                    self.waitlist.setVisible(True)
+                    self.waitlist.setVisible(False)
                     if hasattr(self, 'media_player'):
-                        # self.media_player.play()
                         self.container_frame.raise_()
 
                     if hasattr(self, 'video_widget'):
                         self.video_widget.show()
                         self.video_widget.lower()
-
-
-
-
-
                 else:
                     self.waitlist.setVisible(False)
-                    # if hasattr(self, 'media_player'):
-                    #     self.media_player.pause()
                     if hasattr(self, 'video_widget'):
                         self.video_widget.hide()
 
@@ -1642,7 +1609,6 @@ class LauncherUI(QWidget):
 
             except Exception as e:
                 print(e)
-
 
             self.buttons_block.setVisible(index == 0)
             self.dim_layer.setVisible(index in (1, 2, 3))
@@ -1712,7 +1678,8 @@ class LauncherUI(QWidget):
                         "display_name": f"[Shader] {file}"
                     }
 
-                    shader_data = next((s for s in self.shaders_data if s["slug"] in slug_guess or slug_guess in s["slug"]), None)
+                    shader_data = next(
+                        (s for s in self.shaders_data if s["slug"] in slug_guess or slug_guess in s["slug"]), None)
                     if shader_data:
                         shader_info["name"] = shader_data["name"]
                         shader_info["display_name"] = f"[Shader] {shader_data['name']}"
@@ -1735,7 +1702,9 @@ class LauncherUI(QWidget):
                         "display_name": f"[Resourcepack] {name_base}"
                     }
 
-                    rp_data = next((r for r in self.resourcepacks_data if r["slug"] in slug_guess or slug_guess in r["slug"]), None)
+                    rp_data = next(
+                        (r for r in self.resourcepacks_data if r["slug"] in slug_guess or slug_guess in r["slug"]),
+                        None)
                     if rp_data:
                         rp_info["name"] = rp_data["name"]
                         rp_info["display_name"] = f"[Resourcepack] {rp_data['name']}"
@@ -1791,7 +1760,8 @@ class LauncherUI(QWidget):
                 QPushButton:hover { background-color: #b71c1c; }
             """)
 
-            btn.clicked.connect(lambda _, s=slug, t=item_type, f=item.get("filename"): self._remove_installed_item(s, t, f))
+            btn.clicked.connect(
+                lambda _, s=slug, t=item_type, f=item.get("filename"): self._remove_installed_item(s, t, f))
 
             layout.addWidget(btn)
 
@@ -1809,23 +1779,35 @@ class LauncherUI(QWidget):
         if item_type == "mod":
             self.mod_action.emit(filename if filename else slug, "remove")
 
-    def update_ui(self, lang, bg, moretabs):
+    def update_ui(self, lang):
         self.lang = lang
         self.tab_news_btn.setText(t(lang, "tabs_home"))
         self.tab_mods_btn.setText(t(lang, "tabs_mods"))
         self.tab_installed_mods_btn.setText(t(lang, "tabs_installed_mods"))
         self.tab_settings_btn.setText(t(lang, "tabs_information"))
 
-
         self.about_title.setText(t(lang, "about_title"))
+        self.reinstall_btn.setToolTip(t(lang, "reinstall_btn_tooltip"))
+        self.cleanup_btn.setToolTip(t(lang, "cleanup_title"))
         self.main_label.setText(t(lang, "about_text"))
         self.tech_info_label.setText(f"version: {self.version} by raizor")
 
         self.settings_title.setText(t(lang, "settings_title"))
         self.update_label.setText(t(lang, "updates"))
         self.rpc_label.setText(t(lang, "rpc"))
+        self.snow_label.setText(t(lang, "snow_label"))
+        self.style_label.setText(t(lang, "style_label"))
+        self.lang_label.setText(t(lang, "lang_label"))
+        self.more_settings_title.setText(t(lang, "tabs_information"))
+        self.more_settings_back_btn.setText(t(lang, "back_btn"))
 
         self.search_edit.setPlaceholderText(t(lang, "mod_search"))
+        self.more_title2.setText(t(lang, "more_settings_header"))
+        self.more_btn.setText(t(lang, "more_btn_text"))
+        self.more_title.setText(t(lang, "extra_info_header"))
+        self.formalities_btn.setText(t(lang, "more_btn_text"))
+        self.auth_login_label.setText(t(lang, "login_btn"))
+        self.logout_menu_btn.setText(t(lang, "logout_btn"))
         self.installed_edit.setPlaceholderText(t(lang, "installed_mods_text"))
 
         self.reinstall_btn.setToolTip(t(lang, "reinstall_btn_tooltip"))
@@ -1850,14 +1832,14 @@ class LauncherUI(QWidget):
         try:
             ping_value = int(float(ping_text.replace(t(self.lang, "ms_locale"), "").strip()))
         except ValueError:
-            self.ping_frame.setStyleSheet("background-color:#323232; border-radius:8px;")
+            self.ping_frame.setStyleSheet("background-color: rgba(50,50,50,190); border-radius:8px;")
             return
         if ping_value < 65:
-            color = "#45a800"
+            color = "rgba(69,168,0,190)"
         elif ping_value < 100:
-            color = "#FFCC00"
+            color = "rgba(255,204,0,190)"
         else:
-            color = "#d32f2f"
+            color = "rgba(211,47,47,190)"
 
         self.ping_frame.setStyleSheet(f"background-color:{color}; border-radius:8px;")
 
@@ -1878,20 +1860,20 @@ class LauncherUI(QWidget):
 
         for news in news_list:
             news_block = QFrame(self.news_content)
-            news_block.setStyleSheet("background-color: rgba(50,50,50,200); border-radius:10px;")
+            news_block.setStyleSheet("background-color: rgba(50,50,50,160); border-radius:10px;")
 
             block_layout = QVBoxLayout(news_block)
             block_layout.setContentsMargins(10, 10, 10, 10)
 
             title = QLabel(news.get("title", "Без заголовка"), news_block)
-            title.setStyleSheet("color:white;")
+            title.setStyleSheet("color: white; background: transparent;")
             title.setFont(QFont("sans-serif", 18))
             title.setWordWrap(True)
             title.setFixedWidth(380)
             block_layout.addWidget(title)
 
             text = QLabel(news.get("text", "Не удалось загрузить новости"), news_block)
-            text.setStyleSheet("color:white;")
+            text.setStyleSheet("color: white; background: transparent;")
             text.setFont(QFont("sans-serif", 14))
             text.setWordWrap(True)
             text.setFixedWidth(380)
@@ -1900,7 +1882,7 @@ class LauncherUI(QWidget):
 
             if "date" in news:
                 date_label = QLabel(news["date"], news_block)
-                date_label.setStyleSheet("color:gray; font-style: italic;")
+                date_label.setStyleSheet("color:gray; font-style: italic; background: transparent;")
                 date_label.setFont(QFont("sans-serif", 10))
                 block_layout.addWidget(date_label)
 
@@ -2173,7 +2155,6 @@ class LauncherUI(QWidget):
         if self.installed_mods_container.isVisible():
             self._populate_installed_mods()
         QtWidgets.QApplication.processEvents()
-
 
     def update_shader_status(self, slug, action):
         if slug not in self.shader_buttons: return

@@ -16,23 +16,20 @@ MODS_CACHE.mkdir(parents=True, exist_ok=True)
 RP_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
+# нода n2 - основная. Ф1 пока что запаска
 VERSION = "1.21.11"
 host = "play.cherry.pizza"
-backend = ""
-backend1 = ""
-news_url = "n"
-news_url1 = ""
+backend = "https://f1.delonix.cc"
+backend1 = "https://8000.web.delonix.cc"
+news_url = "https://f1.delonix.cc:6443/news/news.json"
+news_url1 = "https://8000.web.delonix.cc/news/news.json"
 
 default_port = "6443"
-default_port1 = "4017"
 
 external_ip_url = 'https://api.ipify.org?format=json'
-LAUNCHER_VERSION = "4.0"
-QUEUE_URL = ""
-QUEUE_URL1 = ""
-PRACTICE_QUEUE_URL = ""
-ACTIVE_PRACTICE_QUEUE_URL = ""
-
+LAUNCHER_VERSION = "4.1"
+PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/prac"
+ACTIVE_PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/active_prac"
 
 
 tabs_style = """
@@ -45,30 +42,68 @@ tabs_disabled_style = """
     QPushButton:hover { background-color: #666; }
 """
 
-# Для петрушки - потом будет авторизация через дс для проверки на доступ к модераторским фичам. Функционала пока нету
-DISCORD_CLIENT_ID = "1418604142422917330"
-DISCORD_CLIENT_SECRET = "2rF1Tcf6CRr9pBwB5pwZ4SEJIPd8KvOc"
-DISCORD_REDIRECT_URI = "https://example.com/callback"
-DISCORD_AUTH_URL = f"https://discord.com/oauth2/authorize?client_id={DISCORD_CLIENT_ID}&response_type=code&redirect_uri={DISCORD_REDIRECT_URI}&scope=identify"
-DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
-DISCORD_USER_URL = "https://discord.com/api/users/@me"
-discord_test = "https://discord.com/oauth2/authorize?client_id=1418604142422917330&response_type=code&redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&scope=identify"
 
+tabs_style_new = """
+    QPushButton { background-color: #555; color: white; border-radius: 5px; border: none; }
+    QPushButton:hover { background-color: #666; }
+    QPushButton:checked { background-color: #fbac18; }
+"""
+tabs_disabled_style_new = """
+    QPushButton { background-color: #b36f00; color: white; border-radius: 5px; border: none; }
+    QPushButton:hover { background-color: #b36f00; }
+"""
 
+old_btn_style = """
+                        QPushButton {
+                            background-color: #2a6da0;
+                            color: white;
+                            border-radius: 8px;
+                            font-weight: bold;
+                            font-size: 13px;
+                        }
+                        QPushButton:hover {
+                            background-color: #3579b0;
+                        }
+                        QPushButton:pressed {
+                            background-color: #1e5585;
+                        }
+                    """
+
+new_btn_style = """
+                        QPushButton {
+                            background-color: #fbac18;
+                            color: white;
+                            border-radius: 8px;
+                            font-weight: bold;
+                            font-size: 13px;
+                        }
+                        QPushButton:hover {
+                            background-color: #e69500;
+                        }
+                        QPushButton:pressed {
+                            background-color: #b36f00;
+                        }
+                    """
+
+old_play_btn_style = """
+            QPushButton { background-color: #45A049; color:white; border-radius:10px; }
+            QPushButton:hover:!disabled { background-color: #45a800; }
+            QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
+        """
+
+new_play_btn_style = """
+            QPushButton { background-color: #fbac18; color:white; border-radius:10px; }
+            QPushButton:hover:!disabled { background-color: #e69500; }
+            QPushButton:disabled { background-color:#b36f00; color:#aaa; }
+        """
+
+old_switch_style = "#45A049"
+new_switch_style = "#fbac18"
+
+old_dropdown_style = "#FF5722"
+new_dropdown_style = "#fbac18"
 # ну типа отправка логов в дс, первая - дс фасика, вторая - дс практиса
-WEBHOOK_URL = ""
-LOGS_WEBHOOK_URL = ""
-
-WEBHOOK_URL2 = ""
-LOGS_WEBHOOK_URL2 = ""
-
-
-
-# Для петрушки - Взаимодействие с модераторами. Пока нету функционала | Высокий приоритет!!!
-MODERATORS_URL = f"{backend}:{default_port}/moderators"
-BANNED_IPS_ADD_URL = f"{backend}:{default_port}/banned_ips/add"
-BANNED_IPS_REMOVE_URL = f"{backend}:{default_port}/banned_ips/remove"
-MODERATORS_ADD_URL = f"{backend}:{default_port}/moderators/add"
-MODERATORS_REMOVE_URL = f"{backend}:{default_port}/moderators/remove"
+LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1433883006233215139/TzDnGiGeJWspLN-AxmekKGWJ2ywZm1kz30fni4z3Z7OG0RGZw4VsxflhglMzqja5ZHy_"
+LOGS_WEBHOOK_URL2 = "https://discord.com/api/webhooks/1442090141853159514/tdQ3C9ecLsz3ZlHefCwONfEnUsvKLtYgWdEa3mDhGq_nCPhE-ZH5uSZdVuRwXS9xycmK"
 
 

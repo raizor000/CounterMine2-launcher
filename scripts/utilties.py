@@ -7,8 +7,9 @@ import requests
 import win32gui
 from PIL import Image
 from PyQt6.QtCore import pyqtSignal, QPropertyAnimation, Qt, QEasingCurve, QRectF, QTimer, QPointF
-from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath, QCursor
-from PyQt6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel
+from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath, QCursor, QLinearGradient
+from PyQt6.QtNetwork import QLocalSocket, QLocalServer
+from PyQt6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel, QGraphicsDropShadowEffect
 
 from .constants import *
 from .translations import translations
@@ -138,6 +139,28 @@ def is_summer() -> bool:
 def is_autumn() -> bool:
     return date.today().month in (9, 10, 11)
 
+def is_running():
+    socket = QLocalSocket()
+    socket.connectToServer("countermine_launcher")
+    if socket.waitForConnected(100):
+        return True
+    return False
+
+def create_server(window):
+    server = QLocalServer()
+    server.removeServer("countermine_launcher")
+    server.listen("countermine_launcher")
+
+    def handle_connection():
+        client = server.nextPendingConnection()
+        client.disconnectFromServer()
+
+        window.showNormal()
+        window.activateWindow()
+        window.raise_()
+
+    server.newConnection.connect(handle_connection)
+    return server
 
 class SwitchButton(QWidget):
     stateChanged = pyqtSignal(bool)
@@ -148,9 +171,19 @@ class SwitchButton(QWidget):
         self._checked = False
         self._pos = 4
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._on_color = QColor("#45A049")
+        self._off_color = QColor("#777777")
 
     def isChecked(self):
         return self._checked
+
+    def setOnColor(self, color: str):
+        self._on_color = QColor(color)
+        self.update()
+
+    def setOffColor(self, color: str):
+        self._off_color = QColor(color)
+        self.update()
 
     def setChecked(self, checked):
         if self._checked == checked:
@@ -171,7 +204,7 @@ class SwitchButton(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        color = QColor("#45A049") if self._checked else QColor("#777777")
+        color = self._on_color if self._checked else self._off_color
         painter.setBrush(color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(0, 0, 52, 28, 14, 14)
@@ -211,6 +244,29 @@ class DropDown(QWidget):
         self.expanded = False
         self.popup = None
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._bg_color = QColor("#2E2E2E")
+        self._border_color = QColor("#555")
+        self._text_color = QColor("white")
+        self._hover_color = "#3A3A3A"
+        self._selected_color = "#45A049"
+
+    def setBackgroundColor(self, color: str):
+        self._bg_color = QColor(color)
+        self.update()
+
+    def setBorderColor(self, color: str):
+        self._border_color = QColor(color)
+        self.update()
+
+    def setTextColor(self, color: str):
+        self._text_color = QColor(color)
+        self.update()
+
+    def setHoverColor(self, color: str):
+        self._hover_color = color
+
+    def setSelectedColor(self, color: str):
+        self._selected_color = color
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -229,7 +285,11 @@ class DropDown(QWidget):
         self.expanded = True
 
         self.popup = QFrame(self, flags=Qt.WindowType.Popup)
-        self.popup.setStyleSheet("background-color: #2E2E2E; border: 1px solid #555; border-radius: 6px;")
+        self.popup.setStyleSheet(f"""
+            background-color: {self._bg_color.name()};
+            border: 1px solid {self._border_color.name()};
+            border-radius: 6px;
+        """)
         layout = QVBoxLayout(self.popup)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -238,11 +298,11 @@ class DropDown(QWidget):
             label = QLabel(item)
             label.setStyleSheet(f"""
                 QLabel {{
-                    color: {'#45A049' if item == self.current else 'white'};
+                    color: {self._selected_color if item == self.current else self._text_color.name()};
                     padding: 6px 10px;
                 }}
                 QLabel:hover {{
-                    background-color: #3A3A3A;
+                    background-color: {self._hover_color};
                 }}
             """)
             label.mousePressEvent = lambda e, text=item: self.select_item(text)
@@ -273,14 +333,13 @@ class DropDown(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        painter.setBrush(QColor("#2E2E2E"))
-        painter.setPen(QColor("#555"))
+        painter.setBrush(self._bg_color)
+        painter.setPen(self._border_color)
         painter.drawRoundedRect(0, 0, self.width(), 32, 8, 8)
 
-        painter.setPen(QColor("white"))
+        painter.setPen(self._text_color)
         painter.drawText(12, 21, self.current)
 
-        painter.setPen(QColor("white"))
         painter.drawText(self.width() - 20, 21, "▼")
 
 
@@ -444,3 +503,56 @@ class ScrollingNick(QScrollArea):
         text_width = self.label1.sizeHint().width()
         self.container.setMinimumWidth(text_width * 2 + 80)
         self.horizontalScrollBar().setValue(0)
+
+
+
+class GlassFrame(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.radius = 22
+
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setObjectName("GlassFrame")
+
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(50)
+        shadow.setOffset(0, 12)
+        shadow.setColor(QColor(0, 0, 0, 130))
+        self.setGraphicsEffect(shadow)
+
+        self.setStyleSheet("""
+            QFrame#GlassFrame {
+                background: transparent;
+                border: none;
+            }
+        """)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        rect = QRectF(self.rect())
+
+        path = QPainterPath()
+        path.addRoundedRect(rect, self.radius, self.radius)
+
+        base_gradient = QLinearGradient(0, 0, 0, rect.height())
+        base_gradient.setColorAt(0, QColor(255, 255, 255, 70))
+        base_gradient.setColorAt(1, QColor(255, 255, 255, 25))
+
+        painter.fillPath(path, base_gradient)
+
+        highlight_rect = rect.adjusted(2, 2, -2, -rect.height() // 2)
+        highlight_path = QPainterPath()
+        highlight_path.addRoundedRect(highlight_rect, self.radius, self.radius)
+
+        highlight_gradient = QLinearGradient(0, 0, 0, highlight_rect.height())
+        highlight_gradient.setColorAt(0, QColor(255, 255, 255, 120))
+        highlight_gradient.setColorAt(1, QColor(255, 255, 255, 0))
+
+        painter.fillPath(highlight_path, highlight_gradient)
+        painter.setPen(QColor(255, 255, 255, 140))
+        painter.drawPath(path)
+
+        super().paintEvent(event)

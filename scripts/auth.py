@@ -8,10 +8,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from PyQt6.QtCore import QObject, pyqtSignal
 
-TOKEN_URL = ""
+TOKEN_URL = "https://auth.cherry.pizza/realms/cherrypizza/protocol/openid-connect/token"
 CLIENT_ID = "frontend"
 REDIRECT_URI = "http://localhost:8080"
-GRAPHQL_URL = ""
+GRAPHQL_URL = "https://cherry.pizza/api/graphql"
 
 class AuthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -240,10 +240,7 @@ class CherryAuth(QObject):
             r = requests.post(GRAPHQL_URL, json=payload, headers=headers)
             if r.status_code == 200:
                 data = r.json()
-                try:
-                     with open(self.config_path.parent / "auth_debug.log", "a", encoding="utf-8") as f:
-                         f.write(f"API Response: {json.dumps(data)}\n")
-                except: pass
+
 
                 if "data" in data and data["data"] and data["data"].get("accountByNickname"):
                     self.user_data = data["data"]["accountByNickname"]
