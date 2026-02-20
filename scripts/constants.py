@@ -19,17 +19,17 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # нода n2 - основная. Ф1 пока что запаска
 VERSION = "1.21.11"
 host = "play.cherry.pizza"
-backend = "https://f1.delonix.cc"
-backend1 = "https://8000.web.delonix.cc"
-news_url = "https://f1.delonix.cc:6443/news/news.json"
-news_url1 = "https://8000.web.delonix.cc/news/news.json"
+backend = "https://fx.cc"
+backend1 = "https://80nix.cc"
+news_url = "https://f6443/news/news.json"
+news_url1 = "https://80nix.cc/news/news.json"
 
 default_port = "6443"
 
 external_ip_url = 'https://api.ipify.org?format=json'
 LAUNCHER_VERSION = "4.1"
-PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/prac"
-ACTIVE_PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/active_prac"
+PRACTICE_QUEUE_URL = "http://51:20169/prac"
+ACTIVE_PRACTICE_QUEUE_URL = "http://50169/active_prac"
 
 
 tabs_style = """
@@ -103,7 +103,8 @@ new_switch_style = "#fbac18"
 old_dropdown_style = "#FF5722"
 new_dropdown_style = "#fbac18"
 # ну типа отправка логов в дс, первая - дс фасика, вторая - дс практиса
-LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1433883006233215139/TzDnGiGeJWspLN-AxmekKGWJ2ywZm1kz30fni4z3Z7OG0RGZw4VsxflhglMzqja5ZHy_"
-LOGS_WEBHOOK_URL2 = "https://discord.com/api/webhooks/1442090141853159514/tdQ3C9ecLsz3ZlHefCwONfEnUsvKLtYgWdEa3mDhGq_nCPhE-ZH5uSZdVuRwXS9xycmK"
+LOGS_WEBHOOK_URL = "https://discord.43388300623ei4z3Z7OG0RGZw4VsxflhglMzqja5ZHy_"
+LOGS_WEBHOOK_URL2 = "https://disgWdEa3mDhGq_nCPhE-ZH5uSZdVuRwXS9xycmK"
+
 
 
