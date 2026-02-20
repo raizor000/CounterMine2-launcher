@@ -12,7 +12,6 @@ import uuid
 import minecraft_launcher_lib.types
 from PyQt6.QtGui import QMouseEvent
 from psutil import virtual_memory
-import pygame.mixer
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import QMessageBox
 from packaging import version
@@ -36,15 +35,12 @@ class LauncherApp(QtWidgets.QMainWindow):
         self._installing = False
         self._updating = False
         #ну и просто настройки
-        self.sound_enabled = False
         self.check_for_updates_permission = True
-        self.hide_faceit = False
+        self.new_style = True
         self.discord_rpc = True
         self.nickname = None
         self.banned = False
-        self.dynamic_bg = True
         self.show_snow = True
-        self.more_tabs_in_header = False
         self.rpc = None
         self.log_file = get_new_logfile(str(MC_DIR))
         self.lang = "ru_ru"
@@ -62,7 +58,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.load_settings()
 
-        self.ui.update_ui(self.lang, self.dynamic_bg, self.more_tabs_in_header) #обновляю интерфейс сразу после загрузки настроек короче чтобы язык был правильный и тп
+        self.ui.update_ui(self.lang) #обновляю интерфейс сразу после загрузки настроек короче чтобы язык был правильный и тп
 
         self.ui.setup_mods_search()
         self.ui.setup_mods_label()
@@ -72,6 +68,12 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.setWindowIcon(QIcon(self.ui.resource_path("assets/icon.ico")))
         self.setCentralWidget(self.ui)
+
+        html_path = Path(self.ui.resource_path("scripts/html/cherryauth-index.html")).resolve()
+        if not html_path.exists():
+            html_path = Path(__file__).parent / "cherryauth-index.html"
+
+        self.auth_manager = CherryAuth(LAUNCHER_DIR / "auth_token.json", html_path)
 
         if is_winter_period():
             self.snow = SnowOverlay(self, QPixmap(self.ui.resource_path("assets/snow1.png")))
@@ -103,34 +105,14 @@ class LauncherApp(QtWidgets.QMainWindow):
             threading.Thread(target=self.update_rpc, daemon=True).start()
         threading.Thread(target=self.update_mod_info, daemon=True).start()
         threading.Thread(target=self.get_ip, daemon=True).start()
-        threading.Thread(target=self.init_mixer, daemon=True).start()
         threading.Thread(target=self.get_updates, daemon=True).start()
 
         self.register_url_protocol()
 
-        html_path = Path(self.ui.resource_path("scripts/html/cherryauth-index.html")).resolve()
-        if not html_path.exists():
-             html_path = Path(__file__).parent / "cherryauth-index.html"
 
-        self.auth_manager = CherryAuth(LAUNCHER_DIR / "auth_token.json", html_path)
-        self.auth_manager.auth_finished.connect(self.on_auth_success)
-        self.auth_manager.auth_failed.connect(self.on_auth_failed)
-        self.auth_manager.logged_out.connect(self.on_logged_out)
-        
-        self.ui.auth_login_clicked.connect(self.auth_manager.start_login)
-        self.ui.auth_logout_clicked.connect(self.auth_manager.logout)
         
         threading.Thread(target=self.auth_manager.check_auth_status, daemon=True).start()
 
-
-    def init_mixer(self):
-        try:
-            pygame.mixer.init()
-            pygame.mixer.music.load(self.ui.resource_path("assets/bananvovan.mp3"))
-            self.sound_enabled = True
-        except Exception as e:
-            self.sound_enabled = False
-            self.write_log(f"Mixer init failed: {e}")
 
     def get_ip(self):
         self.ip = get_external_ip()
@@ -214,8 +196,46 @@ class LauncherApp(QtWidgets.QMainWindow):
                     case "Русский":
                         self.lang = "ru_ru"
                 self.save_settings()
-                self.ui.update_ui(self.lang, self.dynamic_bg, self.more_tabs_in_header)
+                self.ui.update_ui(self.lang)
                 self.fetcher.set_lang(self.lang)
+
+            elif key == "style":
+                self.new_style = bool(value)
+                self.ui.style_switch.setChecked(bool(self.new_style))
+                self.save_settings()
+
+                if self.new_style:
+                    self.ui.tab_news_btn.setStyleSheet(tabs_style_new)
+                    self.ui.tab_mods_btn.setStyleSheet(tabs_style_new)
+                    self.ui.tab_installed_mods_btn.setStyleSheet(tabs_style_new)
+                    self.ui.tab_settings_btn.setStyleSheet(tabs_style_new)
+                    self.ui.formalities_btn.setStyleSheet(new_btn_style)
+                    self.ui.more_btn.setStyleSheet(new_btn_style)
+                    self.ui.play_btn.setStyleSheet(new_play_btn_style)
+                    self.ui.style_switch.setOnColor(new_switch_style)
+                    self.ui.rpc_switch.setOnColor(new_switch_style)
+                    self.ui.snow_switch.setOnColor(new_switch_style)
+                    self.ui.update_switch.setOnColor(new_switch_style)
+                    self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
+                    self.ui.lang_dropdown.setTextColor(new_dropdown_style)
+                else:
+                    self.ui.tab_news_btn.setStyleSheet(tabs_style)
+                    self.ui.tab_mods_btn.setStyleSheet(tabs_style)
+                    self.ui.tab_installed_mods_btn.setStyleSheet(tabs_style)
+                    self.ui.tab_settings_btn.setStyleSheet(tabs_style)
+                    self.ui.formalities_btn.setStyleSheet(old_btn_style)
+                    self.ui.more_btn.setStyleSheet(old_btn_style)
+                    self.ui.play_btn.setStyleSheet(old_play_btn_style)
+                    self.ui.style_switch.setOnColor(old_switch_style)
+                    self.ui.rpc_switch.setOnColor(old_switch_style)
+                    self.ui.snow_switch.setOnColor(old_switch_style)
+                    self.ui.update_switch.setOnColor(old_switch_style)
+                    self.ui.lang_dropdown.setSelectedColor(old_dropdown_style)
+                    self.ui.lang_dropdown.setTextColor("#ffffff")
+
+
+
+
             elif key == "update":
                 self.check_for_updates_permission = bool(value)
                 self.save_settings()
@@ -325,11 +345,11 @@ class LauncherApp(QtWidgets.QMainWindow):
     def save_settings(self):
         settings = {
             "nickname": self.nickname,
-            "sound_enabled": self.sound_enabled,
             "lang": self.lang,
             "update_auto": self.check_for_updates_permission,
             "rpc": self.discord_rpc,
             "snow": self.show_snow,
+            "new_style" : self.new_style
         }
         try:
             with open(LAUNCHER_DIR / "settings.json", "w", encoding="utf-8") as f:
@@ -357,11 +377,11 @@ class LauncherApp(QtWidgets.QMainWindow):
             with open(LAUNCHER_DIR / "settings.json", "r", encoding="utf-8") as f:
                 data = json.load(f)
                 nick = data.get("nickname", "")
-                sound = data.get("sound_enabled", True)
                 lang = data.get("lang", "ru_ru")
                 update = data.get("update_auto", True)
                 rpc = data.get("rpc", True)
                 snow = data.get("snow", True)
+                style = data.get("new_style", True)
                 if is_winter_period():
                     if snow:
                         self.snow.show()
@@ -370,21 +390,49 @@ class LauncherApp(QtWidgets.QMainWindow):
 
                 if nick:
                     self.nickname = nick
-                self.sound_enabled = sound
                 self.show_snow = snow
                 self.lang = lang
+                self.new_style = style
                 self.fetcher.set_lang(lang)
-                if self.hide_faceit:
-                    self.ui.waitlist.hide()
-                else:
-                    self.ui.waitlist.show()
                 self.check_for_updates_permission = update
                 self.ui.update_switch.setChecked(bool(update))
                 self.ui.rpc_switch.setChecked(rpc)
                 self.ui.snow_switch.setChecked(bool(self.show_snow))
+                self.ui.style_switch.setChecked(bool(self.new_style))
 
                 self.discord_rpc = rpc
                 self.ui.lang_dropdown.current = "Русский" if self.lang == "ru_ru" else "English"
+
+                if self.new_style:
+                    self.ui.tab_news_btn.setStyleSheet(tabs_style_new)
+                    self.ui.tab_mods_btn.setStyleSheet(tabs_style_new)
+                    self.ui.tab_installed_mods_btn.setStyleSheet(tabs_style_new)
+                    self.ui.tab_settings_btn.setStyleSheet(tabs_style_new)
+                    self.ui.formalities_btn.setStyleSheet(new_btn_style)
+                    self.ui.more_btn.setStyleSheet(new_btn_style)
+                    self.ui.play_btn.setStyleSheet(new_play_btn_style)
+                    self.ui.style_switch.setOnColor(new_switch_style)
+                    self.ui.rpc_switch.setOnColor(new_switch_style)
+                    self.ui.snow_switch.setOnColor(new_switch_style)
+                    self.ui.update_switch.setOnColor(new_switch_style)
+                    self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
+                    self.ui.lang_dropdown.setTextColor(new_dropdown_style)
+                else:
+                    self.ui.tab_news_btn.setStyleSheet(tabs_style)
+                    self.ui.tab_mods_btn.setStyleSheet(tabs_style)
+                    self.ui.tab_installed_mods_btn.setStyleSheet(tabs_style)
+                    self.ui.tab_settings_btn.setStyleSheet(tabs_style)
+                    self.ui.formalities_btn.setStyleSheet(old_btn_style)
+                    self.ui.more_btn.setStyleSheet(old_btn_style)
+                    self.ui.play_btn.setStyleSheet(old_play_btn_style)
+                    self.ui.style_switch.setOnColor(old_switch_style)
+                    self.ui.rpc_switch.setOnColor(old_switch_style)
+                    self.ui.snow_switch.setOnColor(old_switch_style)
+                    self.ui.update_switch.setOnColor(old_switch_style)
+                    self.ui.lang_dropdown.setSelectedColor(old_dropdown_style)
+                    self.ui.lang_dropdown.setTextColor("#ffffff")
+
+
 
         except FileNotFoundError:
             self.write_log("Файл настроек не найден — используются значения по умолчанию")
@@ -402,6 +450,13 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ui.mod_action.connect(self.handle_mod_action)
         self.ui.settings_changed.connect(self.on_settings_changed)
         self.ui.quitSignal.connect(self.exit_launcher)
+        self.ui.auth_login_clicked.connect(self.auth_manager.start_login)
+        self.ui.auth_logout_clicked.connect(self.auth_manager.logout)
+        self.ui.cleanup_clicked.connect(self.cleanup_cache)
+
+        self.auth_manager.auth_finished.connect(self.on_auth_success)
+        self.auth_manager.auth_failed.connect(self.on_auth_failed)
+        self.auth_manager.logged_out.connect(self.on_logged_out)
 
         self.fetcher.newsFetched.connect(self.ui.update_news)
         self.fetcher.onlineFetched.connect(self.ui.update_online_and_ping_labels)
@@ -409,19 +464,17 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def update_practice_widgets(self, searching_clans: list, active_practices: dict):
         if searching_clans:
-            self.ui.prac_header_label.setText("В поиске прака: Клан " + "\n • ".join(searching_clans))
+            self.ui.prac_header_label.setText("В поиске прака: Клан " + str(searching_clans[0]))
         else:
             self.ui.prac_header_label.setText("Никто из команд не ищет прак")
 
         if active_practices:
-            lines = []
-            for match_id, (t1, t2) in active_practices.items():
-                lines.append(f"{t1} vs {t2}")
+            lines = [f"{t1} vs {t2}" for t1, t2 in active_practices.values()]
             text = "\n".join(lines)
-            self.ui.prac_status_label.setText("Активные праки:\n"+text)
+            self.ui.prac_status_label.setText("Активные праки:\n" + text)
         else:
             self.ui.prac_status_label.setText("И активных праков сейчас нету")
-        
+
         self.ui.update_practice_position()
 
     def update_rpc(self, enable=True):
@@ -508,6 +561,43 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self._install_and_launch()
 
             threading.Thread(target=process_delete, daemon=True).start()
+
+    def cleanup_cache(self):
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            t(self.lang, "cleanup_title"),
+            t(self.lang, "cleanup_confirm"),
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.Yes
+        )
+
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            def process_cleanup():
+                cleaned_dirs = ["logs", "crash-reports", "shaderpacks_cache"]
+                for d in cleaned_dirs:
+                    dir_path = MC_DIR / d
+                    if dir_path.exists():
+                        try:
+                            import shutil
+                            shutil.rmtree(str(dir_path))
+                            dir_path.mkdir(parents=True, exist_ok=True)
+                            self.write_log(f"Очищена папка: {d}")
+                        except Exception as e:
+                            self.write_log(f"Ошибка при очистке {d}: {str(e)}")
+
+                for file in os.listdir(str(MC_DIR)):
+                    if file.endswith(".log") and Path(os.path.join(str(MC_DIR), file)) != Path(self.log_file):
+                        try:
+                            os.remove(os.path.join(str(MC_DIR), file))
+                        except: pass
+
+                QtCore.QMetaObject.invokeMethod(self, "_show_cleanup_done", QtCore.Qt.ConnectionType.QueuedConnection)
+
+            threading.Thread(target=process_cleanup, daemon=True).start()
+
+    @QtCore.pyqtSlot()
+    def _show_cleanup_done(self):
+        QtWidgets.QMessageBox.information(self, t(self.lang, "cleanup_title"), t(self.lang, "cleanup_success"))
 
     def update_mod_info(self, specific_slug=None):
         if specific_slug:
@@ -758,7 +848,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         if running:
             self.ui.media_player.pause()
             self.fetcher.set_game(True)
-            pygame.mixer.music.stop()
             self.ui.set_play_status(t(self.lang, "in_game_status"))
             self.ui.set_play_enabled(False)
             self._launching = False
@@ -866,18 +955,12 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def exit_launcher(self):
         self.write_log("Closing...")
-        # pygame.mixer.music.stop()
+        self.ui.media_player.stop()
         self.close()
         last_log = threading.Thread(target=self.submit_logfile)
         last_log.start()
         last_log.join()
         sys.exit(0)
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        print("Video output:", self.ui.media_player.videoOutput())
-
-        QTimer.singleShot(100, self.ui.media_player.play)
 
 
 
@@ -885,7 +968,13 @@ os.environ["QT_MULTIMEDIA_PREFERRED_PLUGINS"] = "windowsmediafoundation"
 os.environ["QT_QUICK_BACKEND"] = "software"
 
 app = QtWidgets.QApplication(sys.argv)
+
+if is_running():
+    sys.exit(0)
+
 win = LauncherApp()
+server = create_server(win)
+
 win.show()
 win.raise_()
 win.activateWindow()
