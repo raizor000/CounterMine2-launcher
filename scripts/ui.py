@@ -69,7 +69,7 @@ class LauncherUI(QWidget):
     settings_changed = pyqtSignal(str, object)
     auth_login_clicked = pyqtSignal()
     auth_logout_clicked = pyqtSignal()
-    cleanup_clicked = pyqtSignal()
+    open_directory_clicked = pyqtSignal()
     quitSignal = pyqtSignal()
 
     def __init__(self, version, ip, lang, parent=None):
@@ -678,15 +678,15 @@ class LauncherUI(QWidget):
             btn.setStyleSheet("border:none; background-color: rgba(50,50,50,140); border-radius: 2px;")
             btn.setToolTip(str(icon.replace(".png", "")))
 
-        self.cleanup_btn = QPushButton(self.buttons_block)
-        self.cleanup_btn.setGeometry(12, block_height - 2 * button_size - spacing + 9, button_size, button_size)
-        self.cleanup_btn.setIcon(QIcon(self.resource_path("assets/cleanup.png")))
-        self.cleanup_btn.setIconSize(QSize(button_size, button_size))
+        self.open_game_directory_btn = QPushButton(self.buttons_block)
+        self.open_game_directory_btn.setGeometry(12, block_height - 2 * button_size - spacing + 9, button_size, button_size)
+        self.open_game_directory_btn.setIcon(QIcon(self.resource_path("assets/directory.png")))
+        self.open_game_directory_btn.setIconSize(QSize(button_size, button_size))
         # noinspection PyUnresolvedReferences
-        self.cleanup_btn.clicked.connect(lambda: self.cleanup_clicked.emit())
-        self.cleanup_btn.setStyleSheet("border:none; background:#323232;")
-        self.cleanup_btn.setToolTip("ОЧИСТИТЬ КЭШ")
-        self.cleanup_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.open_game_directory_btn.clicked.connect(lambda: self.open_directory_clicked.emit())
+        self.open_game_directory_btn.setStyleSheet("border:none; background:#323232;")
+        self.open_game_directory_btn.setToolTip("сожрать говна")
+        self.open_game_directory_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
         self.reinstall_btn = QPushButton(self.buttons_block)
         self.reinstall_btn.setGeometry(12, block_height - button_size + 9, button_size, button_size)
@@ -1075,13 +1075,13 @@ class LauncherUI(QWidget):
         self.main_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.main_label)
 
-        self.more_title2 = QLabel("Настройки")
-        self.more_title2.setStyleSheet("color: white; font-weight: bold; background: transparent;")
+        self.more_title2 = QLabel("----------------------------------------------------")
+        self.more_title2.setStyleSheet("color: #dddddd; font-weight: bold; background: transparent;")
         self.more_title2.setFont(QFont("sans-serif", 13))
         self.more_title2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.more_title2)
 
-        self.more_btn = QPushButton("Перейти →")
+        self.more_btn = QPushButton("Настройки →")
         self.more_btn.setFixedHeight(42)
         self.more_btn.setStyleSheet("""
                         QPushButton {
@@ -1089,7 +1089,7 @@ class LauncherUI(QWidget):
                             color: white;
                             border-radius: 8px;
                             font-weight: bold;
-                            font-size: 13px;
+                            font-size: 15px;
                         }
                         QPushButton:hover {
                             background-color: #e69500;
@@ -1102,13 +1102,13 @@ class LauncherUI(QWidget):
 
         layout.addWidget(self.more_btn)
 
-        self.more_title = QLabel("Всякие интересные штуки")
-        self.more_title.setStyleSheet("color: white; font-weight: bold; background: transparent;")
+        self.more_title = QLabel("----------------------------------------------------")
+        self.more_title.setStyleSheet("color: #dddddd; font-weight: bold; background: transparent;")
         self.more_title.setFont(QFont("sans-serif", 13))
         self.more_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.more_title)
 
-        self.formalities_btn = QPushButton("Перейти →")
+        self.formalities_btn = QPushButton("Информация →")
         self.formalities_btn.setFixedHeight(42)
         self.formalities_btn.setStyleSheet("""
                         QPushButton {
@@ -1116,7 +1116,7 @@ class LauncherUI(QWidget):
                             color: white;
                             border-radius: 8px;
                             font-weight: bold;
-                            font-size: 13px;
+                            font-size: 15px;
                         }
                         QPushButton:hover {
                             background-color: #e69500;
@@ -1788,7 +1788,7 @@ class LauncherUI(QWidget):
 
         self.about_title.setText(t(lang, "about_title"))
         self.reinstall_btn.setToolTip(t(lang, "reinstall_btn_tooltip"))
-        self.cleanup_btn.setToolTip(t(lang, "cleanup_title"))
+        self.open_game_directory_btn.setToolTip(t(lang, "directory_title"))
         self.main_label.setText(t(lang, "about_text"))
         self.tech_info_label.setText(f"version: {self.version} by raizor")
 
@@ -1802,10 +1802,10 @@ class LauncherUI(QWidget):
         self.more_settings_back_btn.setText(t(lang, "back_btn"))
 
         self.search_edit.setPlaceholderText(t(lang, "mod_search"))
-        self.more_title2.setText(t(lang, "more_settings_header"))
+        # self.btn.setText(t(lang, "more_settings_header"))
         self.more_btn.setText(t(lang, "more_btn_text"))
-        self.more_title.setText(t(lang, "extra_info_header"))
-        self.formalities_btn.setText(t(lang, "more_btn_text"))
+        # self.more_title.setText(t(lang, "extra_info_header"))
+        self.formalities_btn.setText(t(lang, "more_btn_text2"))
         self.auth_login_label.setText(t(lang, "login_btn"))
         self.logout_menu_btn.setText(t(lang, "logout_btn"))
         self.installed_edit.setPlaceholderText(t(lang, "installed_mods_text"))

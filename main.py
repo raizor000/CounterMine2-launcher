@@ -452,7 +452,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ui.quitSignal.connect(self.exit_launcher)
         self.ui.auth_login_clicked.connect(self.auth_manager.start_login)
         self.ui.auth_logout_clicked.connect(self.auth_manager.logout)
-        self.ui.cleanup_clicked.connect(self.cleanup_cache)
+        self.ui.open_directory_clicked.connect(self.open_game_directory)
 
         self.auth_manager.auth_finished.connect(self.on_auth_success)
         self.auth_manager.auth_failed.connect(self.on_auth_failed)
@@ -562,42 +562,10 @@ class LauncherApp(QtWidgets.QMainWindow):
 
             threading.Thread(target=process_delete, daemon=True).start()
 
-    def cleanup_cache(self):
-        reply = QtWidgets.QMessageBox.question(
-            self,
-            t(self.lang, "cleanup_title"),
-            t(self.lang, "cleanup_confirm"),
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-            QtWidgets.QMessageBox.StandardButton.Yes
-        )
+    def open_game_directory(self):
+        subprocess.Popen(['explorer.exe', str(MC_DIR)])
 
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-            def process_cleanup():
-                cleaned_dirs = ["logs", "crash-reports", "shaderpacks_cache"]
-                for d in cleaned_dirs:
-                    dir_path = MC_DIR / d
-                    if dir_path.exists():
-                        try:
-                            import shutil
-                            shutil.rmtree(str(dir_path))
-                            dir_path.mkdir(parents=True, exist_ok=True)
-                            self.write_log(f"Очищена папка: {d}")
-                        except Exception as e:
-                            self.write_log(f"Ошибка при очистке {d}: {str(e)}")
 
-                for file in os.listdir(str(MC_DIR)):
-                    if file.endswith(".log") and Path(os.path.join(str(MC_DIR), file)) != Path(self.log_file):
-                        try:
-                            os.remove(os.path.join(str(MC_DIR), file))
-                        except: pass
-
-                QtCore.QMetaObject.invokeMethod(self, "_show_cleanup_done", QtCore.Qt.ConnectionType.QueuedConnection)
-
-            threading.Thread(target=process_cleanup, daemon=True).start()
-
-    @QtCore.pyqtSlot()
-    def _show_cleanup_done(self):
-        QtWidgets.QMessageBox.information(self, t(self.lang, "cleanup_title"), t(self.lang, "cleanup_success"))
 
     def update_mod_info(self, specific_slug=None):
         if specific_slug:
@@ -698,10 +666,11 @@ class LauncherApp(QtWidgets.QMainWindow):
             return 2048
 
     def write_log(self, msg):
-        with open(self.log_file, "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {str(msg)}\n")
-            f.flush()
-            f.close()
+        if os.path.exists(self.log_file):
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {str(msg)}\n")
+                f.flush()
+                f.close()
 
     def on_play_clicked(self):
         self._launching = True
@@ -954,29 +923,38 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.ui.update_resourcepack_status(slug, "remove")
 
     def exit_launcher(self):
-        self.write_log("Closing...")
-        self.ui.media_player.stop()
-        self.close()
-        last_log = threading.Thread(target=self.submit_logfile)
-        last_log.start()
-        last_log.join()
-        sys.exit(0)
-
+        try:
+            self.write_log("Closing...")
+            self.ui.media_player.stop()
+            self.close()
+            try:
+                last_log = threading.Thread(target=self.submit_logfile)
+                last_log.start()
+                last_log.join()
+            except: pass
+            sys.exit(0)
+        except Exception as e:
+            print(e)
 
 
 os.environ["QT_MULTIMEDIA_PREFERRED_PLUGINS"] = "windowsmediafoundation"
-os.environ["QT_QUICK_BACKEND"] = "software"
+# os.environ["QT_QUICK_BACKEND"] = "software"
 
-app = QtWidgets.QApplication(sys.argv)
+try:
+    app = QtWidgets.QApplication(sys.argv)
 
-if is_running():
+    if is_running():
+        sys.exit(0)
+
+    win = LauncherApp()
+    server = create_server(win)
+
+    win.show()
+    win.raise_()
+    win.activateWindow()
+    win.setFocus()
+    sys.exit(app.exec())
+except Exception as e:
+    print(e)
+finally:
     sys.exit(0)
-
-win = LauncherApp()
-server = create_server(win)
-
-win.show()
-win.raise_()
-win.activateWindow()
-win.setFocus()
-sys.exit(app.exec())

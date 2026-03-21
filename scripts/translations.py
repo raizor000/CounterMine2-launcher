@@ -31,8 +31,9 @@ translations = {
         "rpc": "Устанавливать статус в Discord",
         "snow_label": "Показать Снежинки ❄",
         "style_label": "Использовать новую цветовую тему",
-        "back_btn": "← Назад в настройки",
-        "more_btn_text": "Перейти →",
+        "back_btn": "← Назад к аккаунту",
+        "more_btn_text": "Настройки →",
+        "more_btn_text2": "Информация →",
         "more_settings_header": "Настройки",
         "extra_info_header": "Всякие интересные штуки",
         "login_btn": "ВХОД",
@@ -50,10 +51,7 @@ translations = {
         "no_permission": "[НЕТ ДОСТУПА]",
         "reinstall_title": "Подтверждение переустановки",
         "reinstall_text": "Вы уверены, что хотите переустановить клиент? Данное действие нельзя отменить. \n\n✕ Переустановка НЕ затронет папку модов",
-        "cleanup_title": "Очистка кэша",
-        "cleanup_confirm": "Вы уверены, что хотите очистить кэш? Это удалит логи и отчеты об ошибках. \n\nВНИМАНИЕ! ПРИ ПРОВЕРКЕ НА ЧИТЫ, ЕСЛИ У ВАС НЕ БУДЕТ НАЙДЕН НЕОБХОДИМЫЙ ЛОГ, ВЫ БУДЕТЕ ЗАБАНЕНЫ ЗА ОЧИСТКУ ПК ПЕРЕД ПРОВЕРКОЙ НАВСЕГДА.\n\nИСПОЛЬЗУЙТЕ НА СВОЙ СТРАХ И РИСК",
-        "cleanup_success": "Успешно очищено",
-        "cleanup_status": "Очистка...",
+        "directory_title": "Открыть папку с игрой",
         "not_enough_mem_title": "Недостаточно памяти",
         "not_enough_mem_text": "Не удалось запустить игру\n"
                                "Слишком мало оперативной памяти\n"
@@ -119,10 +117,7 @@ translations = {
         "no_permission": "[NO PERMISSION]",
         "reinstall_title": "Confirm an action",
         "reinstall_text": "Are you sure that you want to reinstall client? This action cant be undone. \n\n✕ Re-installation wont affect mods folder",
-        "cleanup_title": "Cache Cleanup",
-        "cleanup_confirm": "Are you sure you want to clean the cache? This will delete logs and crash reports.",
-        "cleanup_success": "Cache cleaned successfully!",
-        "cleanup_status": "Cleaning...",
+        "directory_title": "Game directory",
         "not_enough_mem_title": "Not enough memory",
         "not_enough_mem_text": "Launcher was unable to launch the game\n"
                                "There is not enough operating memory\n"
