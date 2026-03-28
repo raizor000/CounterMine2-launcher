@@ -3,7 +3,6 @@
 
 by raizor
 
-by yanemoderator
 
 
 
