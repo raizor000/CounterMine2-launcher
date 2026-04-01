@@ -10,7 +10,7 @@ from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDa
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
 from PyQt6.QtSvgWidgets import QSvgWidget
-from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGraphicsDropShadowEffect, QGridLayout, QLineEdit, \
+from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGridLayout, QLineEdit, \
     QTextBrowser, QSizePolicy, QGraphicsView, \
     QGraphicsScene
 
@@ -34,7 +34,7 @@ class ModSearchWorker(QObject):
             facets_str = f'[["project_type:mod"],["categories:fabric"],["versions:{VERSION}"]]'
             url = f"https://api.modrinth.com/v2/search?query={urllib.parse.quote(self.query)}&facets={urllib.parse.quote(facets_str)}&limit=54&index={self.index}"
 
-            banned_mods = ["Entity Culling", "Xaero's Minimap"]
+            banned_mods = ["Xaero's Minimap"]
             with urllib.request.urlopen(url, timeout=5) as response:
                 data = json.loads(response.read().decode('utf-8'))
                 hits = data['hits']
@@ -131,7 +131,7 @@ class LauncherUI(QWidget):
         self.view.setFrameShape(QFrame.Shape.NoFrame)
 
         self.video_item = QGraphicsVideoItem()
-        self.video_item.setSize(QSizeF(ww, wh+2))
+        self.video_item.setSize(QSizeF(ww, wh))
         self.scene.addItem(self.video_item)
 
         self.media_player = QMediaPlayer(self)
@@ -418,11 +418,12 @@ class LauncherUI(QWidget):
 
         <ul>
         <li>Концепт, дизайн, логика, кодинг, 3D-Графика и сборка — <span style="color:#6cf">raizor</span></li>
-        <li>API Очереди Практики — <span style="color:#6cf">__petryshka__</span></li>
+        <li>API Очереди RANKED 2.0 — <span style="color:#6cf">__petryshka__</span></li>
         </ul>
         <p>А также, в ней раньше состояли следующие игроки:</p>
         <ul>
         <li>API Очереди Faceit — <span style="color:#6cf">furanixx  (До версии 3.0)</span></li>
+        <li>API Очереди Практики — <span style="color:#6cf">__petryshka__  (До версии 4.1)</span></li>
         <li>Обои — <span style="color:#6cf">vladrompus  (До версии 4.0)</span></li>
         </ul>
         
@@ -518,6 +519,16 @@ class LauncherUI(QWidget):
         snow_layout.addWidget(self.snow_switch)
         card_lay2.addLayout(snow_layout)
 
+        sound_layout = QHBoxLayout()
+        self.sound_label = QLabel("Звук при подтверждении игры Ranked")
+        self.sound_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
+        self.sound_switch = SwitchButton()
+        self.sound_switch.setFixedSize(52, 28)
+        sound_layout.addWidget(self.sound_label)
+        sound_layout.addStretch()
+        sound_layout.addWidget(self.sound_switch)
+        card_lay2.addLayout(sound_layout)
+
         update_layout = QHBoxLayout()
         self.update_label = QLabel("Проверять наличие обновлений")
         self.update_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
@@ -569,6 +580,12 @@ class LauncherUI(QWidget):
         except Exception as e:
             print(e)
 
+        try:
+            self.sound_switch.stateChanged.connect(
+                lambda checked: self.settings_changed.emit("sound_enabled", checked)
+            )
+        except Exception as e:
+            print(e)
 
         try:
             self.lang_dropdown.valueChanged.connect(
@@ -658,7 +675,8 @@ class LauncherUI(QWidget):
         self.buttons_block = QFrame(self)
         self.buttons_block.setGeometry(self.width() - right_offset - (button_size + 24), block_top, button_size + 24,
                                        block_height + 20)
-        self.buttons_block.setStyleSheet("background-color: rgba(50,50,50,140); border-radius:10px; padding:2px;")
+        self.buttons_block.setStyleSheet(
+            "background-color: rgba(50,50,50,140); border-radius:10px; padding:2px; border: 1px solid rgba(255, 255, 255, 40);")
 
         icons = [("telegram.png", "https://t.me/countermine2"),
                  ("youtube.png", "https://www.youtube.com/@CounterMine2"),
@@ -679,7 +697,8 @@ class LauncherUI(QWidget):
             btn.setToolTip(str(icon.replace(".png", "")))
 
         self.open_game_directory_btn = QPushButton(self.buttons_block)
-        self.open_game_directory_btn.setGeometry(12, block_height - 2 * button_size - spacing + 9, button_size, button_size)
+        self.open_game_directory_btn.setGeometry(12, block_height - 2 * button_size - spacing + 9, button_size,
+                                                 button_size)
         self.open_game_directory_btn.setIcon(QIcon(self.resource_path("assets/directory.png")))
         self.open_game_directory_btn.setIconSize(QSize(button_size, button_size))
         # noinspection PyUnresolvedReferences
@@ -719,8 +738,9 @@ class LauncherUI(QWidget):
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        self.faceit_title_label = QLabel("Очередь Faceit")
-        self.faceit_title_label.setStyleSheet("font-weight: bold; font-size: 13pt; color: #f0f0f0;border: 0px; background: transparent;")
+        self.faceit_title_label = QLabel("Очередь Ranked")
+        self.faceit_title_label.setStyleSheet(
+            "font-weight: bold; font-size: 13pt; color: #f0f0f0;border: 0px; background: transparent;")
         header_layout.addWidget(self.faceit_title_label)
         header_layout.addStretch()
 
@@ -748,30 +768,66 @@ class LauncherUI(QWidget):
         faceit_content_layout.setContentsMargins(0, 5, 0, 10)
         faceit_content_layout.setSpacing(8)
 
+        total_slots = 10
+        occupied = 0
+
+        self.queue_label = QLabel(self.get_queue_string(occupied, total_slots))
+        self.queue_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.queue_label.setStyleSheet("font-size: 13pt; letter-spacing: -1px;")
+        faceit_content_layout.addWidget(self.queue_label)
+
+        # self.names_label = QLabel(
+        #     "")
+        # self.names_label.setStyleSheet("color: #dddddd; font-size: 10pt;border: 0px;  background: transparent;")
+        # self.names_label.setWordWrap(True)
+        # faceit_content_layout.addWidget(self.names_label)
+        #
+        # # img = QLabel()
+        # # pix = QPixmap(self.resource_path("assets/bananvovan.png"))
+        # # pix = pix.scaledToWidth(200, Qt.TransformationMode.SmoothTransformation)
+        # # img.setPixmap(pix)
+        # # img.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # # img.setStyleSheet("border: 0px;")
+        # # faceit_content_layout.addWidget(img)
+        #
+        # self.counter_label = QLabel("Осталось - игроков для начала")
+        # self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;border: 0px;  background: transparent;")
+        # faceit_content_layout.addWidget(self.counter_label)
+        names_layout = QHBoxLayout()
+        names_layout.setSpacing(8)
+        names_layout.setContentsMargins(0, 0, 0, 0)
+
+        player_names = []
+
+        names_layout = QHBoxLayout()
+        names_layout.setSpacing(8)
+        names_layout.setContentsMargins(0, 0, 0, 0)
+
+        names_widget = QWidget()
+        names_widget.setLayout(names_layout)
+        faceit_content_layout.addWidget(names_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         self.names_label = QLabel(
-            "Фураникс не оплатил хост. А нам лень убирать данный блок. Так что мы разместим здесь бананчика вованчика")
-        self.names_label.setStyleSheet("color: #dddddd; font-size: 10pt;border: 0px;  background: transparent;")
-        self.names_label.setWordWrap(True)
-        faceit_content_layout.addWidget(self.names_label)
-
-        img = QLabel()
-        pix = QPixmap(self.resource_path("assets/bananvovan.png"))
-        pix = pix.scaledToWidth(200, Qt.TransformationMode.SmoothTransformation)
-        img.setPixmap(pix)
-        img.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        img.setStyleSheet("border: 0px;")
-        faceit_content_layout.addWidget(img)
-
-        self.counter_label = QLabel("Без обид бананчик, мы тебя любим ❤")
+            "\n".join(f"{i + 1}. {name} \n ELO: {elo}" for i, name, elo in enumerate(player_names[:occupied])))
+        self.names_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.names_label.setStyleSheet("color: #dddddd; font-size: 10pt;")
+        faceit_content_layout.addWidget(self.names_label, alignment=Qt.AlignmentFlag.AlignLeft)
+        remaining = total_slots - occupied
+        word = (
+            "игроков" if 5 <= remaining or remaining == 0
+            else "игрока" if 2 <= remaining <= 4
+            else "игрок"
+        )
+        self.counter_label = QLabel(f"Осталось {remaining} {word} для начала")
         self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;border: 0px;  background: transparent;")
+        self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;")
         faceit_content_layout.addWidget(self.counter_label)
 
         wait_layout.addWidget(self.faceit_content)
 
-        self.faceit_expanded = False
-        self.faceit_content.setVisible(False)
-        self.toggle_faceit_btn.setText("+")
+        self.faceit_expanded = True
+        self.faceit_content.setVisible(True)
+        self.toggle_faceit_btn.setText("-")
         self.waitlist.setMinimumHeight(56)
         self.waitlist.setMaximumHeight(56)
         self.waitlist.setFixedHeight(56)
@@ -784,7 +840,7 @@ class LauncherUI(QWidget):
         self.waitlist.move(x_pos, y_pos)
         self.waitlist.setFixedHeight(56)
         self.waitlist.raise_()
-        self.waitlist.hide()
+        # self.waitlist.hide()
 
         shadow1 = QGraphicsDropShadowEffect()
         shadow1.setBlurRadius(22)
@@ -796,6 +852,7 @@ class LauncherUI(QWidget):
         self.practice_widget.setFixedWidth(280)
         self.practice_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.practice_widget.setStyleSheet(self.waitlist.styleSheet())
+        self.practice_widget.hide()
 
         prac_layout = QVBoxLayout(self.practice_widget)
         prac_layout.setContentsMargins(15, 10, 15, 10)
@@ -838,7 +895,7 @@ class LauncherUI(QWidget):
 
         prac_layout.addWidget(self.prac_content)
 
-        self.prac_expanded = True
+        self.prac_expanded = False
         self.toggle_prac_btn.clicked.connect(self.toggle_practice_widget)
 
         self.practice_widget.setMinimumHeight(140)
@@ -858,7 +915,8 @@ class LauncherUI(QWidget):
         ofw, ofh = 231, 64
         self.online_frame = QFrame(self)
         self.online_frame.setGeometry(28, self.height() - ofh - 10, ofw, ofh)
-        self.online_frame.setStyleSheet("background-color: rgba(50,50,50,190); border-radius:8px;")
+        self.online_frame.setStyleSheet(
+            "background-color: rgba(50,50,50,190); border-radius:8px;border: 1px solid rgba(255, 255, 255, 40);")
         online_layout = QHBoxLayout(self.online_frame)
         online_layout.setContentsMargins(10, 5, 10, 5)
         online_layout.setSpacing(15)
@@ -868,8 +926,7 @@ class LauncherUI(QWidget):
         self.movie = QMovie(self.resource_path("assets/online_animation.gif"))
         self.movie.setScaledSize(QSize(55, 50))
 
-        self.online_gif_label.setStyleSheet("background: transparent;")
-
+        self.online_gif_label.setStyleSheet("background: transparent; border: 0px;")
 
         self.online_gif_label.setPixmap(self.static_pixmap)
         online_layout.addWidget(self.online_gif_label)
@@ -890,20 +947,20 @@ class LauncherUI(QWidget):
         self.online_frame.leaveEvent = on_leave
 
         self.online_label = QLabel(t(self.lang, "online_label").format(count="-"), self.online_frame)
-        self.online_label.setStyleSheet("color:white; font-weight:bold; background: transparent;")
+        self.online_label.setStyleSheet("color:white; font-weight:bold; background: transparent; border: 0px;")
         self.online_label.setFont(QFont("sans-serif", 11))
         online_layout.addWidget(self.online_label)
 
         pifw, pifh = 80, 64
         self.ping_frame = QFrame(self)
         self.ping_frame.setGeometry(268, self.height() - pifh - 10, pifw, pifh)
-        self.ping_frame.setStyleSheet("background-color: rgba(50,50,50,190); border-radius:8px; ")
+        self.ping_frame.setStyleSheet("background-color: rgba(50,50,50,190); border-radius:8px;border: 1px solid rgba(255, 255, 255, 40); ")
         ping_layout = QHBoxLayout(self.ping_frame)
         ping_layout.setContentsMargins(10, 5, 10, 5)
         ping_layout.setSpacing(15)
 
         self.ping_label = QLabel(f"- {t(self.lang, 'ms_locale')}", self.ping_frame)
-        self.ping_label.setStyleSheet("color:white; font-weight:bold; background: transparent;")
+        self.ping_label.setStyleSheet("color:white; font-weight:bold; background: transparent; border: 0px;")
         self.ping_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.ping_label.setFont(QFont("sans-serif", 10))
         ping_layout.addWidget(self.ping_label)
@@ -912,7 +969,7 @@ class LauncherUI(QWidget):
 
         self.play_frame = QFrame(self)
         self.play_frame.setGeometry(self.width() - pfw - 113, self.height() - pfh - 10, pfw, pfh)
-        self.play_frame.setStyleSheet("background-color: rgba(50,50,50,200); border-radius:10px; padding:5px;")
+        self.play_frame.setStyleSheet("background-color: rgba(50,50,50,200); border-radius:10px; padding:5px;border: 1px solid rgba(255, 255, 255, 40);")
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(15)
         shadow.setOffset(0, 5)
@@ -1037,6 +1094,35 @@ class LauncherUI(QWidget):
             # self.practice_widget.adjustSize()
         else:
             self.practice_widget.setFixedHeight(56)
+
+    def update_names(self, occ, names):
+        try:
+            safe = [(name, elo) for name, elo in names if isinstance(name, str) and name.strip()]
+            display_count = min(len(safe), occ)
+            
+            html_text = '<table style="width:100%; border-collapse:collapse;">'
+            for i, (name, elo) in enumerate(safe[:display_count]):
+                html_text += f'<tr><td style="text-align:left; padding:2px;">{i + 1}. {name}</td><td style="text-align:right; padding:2px;">🏆{elo}</td></tr>'
+            html_text += '</table>'
+            
+            self.names_label.setText(html_text)
+            self.update_faceit_height()
+            self.waitlist.adjustSize()
+        except Exception as e:
+            print(f"[UI] Error updating names: {e}")
+
+    def get_queue_string(self, occupied, total):
+        return "🟢" * occupied + "⚪" * (total - occupied)
+
+    def update_queue(self, occupied, total_slots):
+        self.queue_label.setText(self.get_queue_string(occupied, total_slots))
+        remaining = total_slots - occupied
+        word = (
+            "игроков" if 5 <= remaining or remaining == 0
+            else "игрока" if 2 <= remaining <= 4
+            else "игрок"
+        )
+        self.counter_label.setText(f"Осталось {remaining} {word} для начала")
 
     def _create_about_card(self):
         card = QFrame()
@@ -1585,12 +1671,12 @@ class LauncherUI(QWidget):
             self.ping_frame.setVisible(index == 0)
             self.play_frame.setVisible(index == 0)
             self.online_frame.setVisible(index == 0)
-            self.practice_widget.setVisible(index == 0)
+            # self.practice_widget.setVisible(index == 0)
             self.information_container.setVisible(False)
             self.moresettings_container.setVisible(False)
             try:
                 if index == 0:
-                    self.waitlist.setVisible(False)
+                    self.waitlist.setVisible(True)
                     if hasattr(self, 'media_player'):
                         self.container_frame.raise_()
 

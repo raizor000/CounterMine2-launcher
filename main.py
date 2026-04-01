@@ -8,7 +8,7 @@ import subprocess
 import sys
 import urllib.request
 import uuid
-
+import pygame.mixer
 import minecraft_launcher_lib.types
 from PyQt6.QtGui import QMouseEvent
 from psutil import virtual_memory
@@ -28,6 +28,8 @@ class LauncherApp(QtWidgets.QMainWindow):
         super().__init__()
 
         # Короче инит настроек
+        self.sound_enabled = True
+        self.occupied_last = None
         self.old_pos = None
         #типа состояния лаунчера
         self._launching = False
@@ -104,8 +106,10 @@ class LauncherApp(QtWidgets.QMainWindow):
         if self.discord_rpc:
             threading.Thread(target=self.update_rpc, daemon=True).start()
         threading.Thread(target=self.update_mod_info, daemon=True).start()
-        threading.Thread(target=self.get_ip, daemon=True).start()
+        # threading.Thread(target=self.get_ip, daemon=True).start()
         threading.Thread(target=self.get_updates, daemon=True).start()
+        threading.Thread(target=self.init_mixer, daemon=True).start()
+
 
         self.register_url_protocol()
 
@@ -113,14 +117,21 @@ class LauncherApp(QtWidgets.QMainWindow):
         
         threading.Thread(target=self.auth_manager.check_auth_status, daemon=True).start()
 
+    def init_mixer(self):
+        try:
+            pygame.mixer.init()
+            self.sound_enabled = True
+        except Exception as e:
+            self.sound_enabled = False
+            self.write_log(f"Mixer init failed: {e}")
 
     def get_ip(self):
         self.ip = get_external_ip()
 
     def get_updates(self):
         try:
-            self.server_url = get_server1_url() # пробуем фетчнуть все через основу
-            self.server_url2 = get_server_url() # но еще есть запаска :)
+            self.server_url = get_server1_url()
+            self.server_url2 = get_server_url()
             self.updates_endpoint = f"{self.server_url}/updates/latest.json"
             self.updates_endpoint2 = f"{self.server_url2}/updates/latest.json"
             self.updates_download_base = f"{self.server_url}/updates/downloader/"
@@ -216,6 +227,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.ui.rpc_switch.setOnColor(new_switch_style)
                     self.ui.snow_switch.setOnColor(new_switch_style)
                     self.ui.update_switch.setOnColor(new_switch_style)
+                    self.ui.sound_switch.setOnColor(new_switch_style)
                     self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
                     self.ui.lang_dropdown.setTextColor(new_dropdown_style)
                 else:
@@ -228,13 +240,23 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.ui.play_btn.setStyleSheet(old_play_btn_style)
                     self.ui.style_switch.setOnColor(old_switch_style)
                     self.ui.rpc_switch.setOnColor(old_switch_style)
+                    self.ui.sound_switch.setOnColor(old_switch_style)
                     self.ui.snow_switch.setOnColor(old_switch_style)
                     self.ui.update_switch.setOnColor(old_switch_style)
                     self.ui.lang_dropdown.setSelectedColor(old_dropdown_style)
                     self.ui.lang_dropdown.setTextColor("#ffffff")
 
-
-
+            elif key == "sound_enabled":
+                self.sound_enabled = bool(value)
+                if value:
+                    pygame.mixer.music.load(self.ui.resource_path("assets/qjoin_01.mp3"))
+                    pygame.mixer.music.play()
+                else:
+                    pygame.mixer.music.load(self.ui.resource_path("assets/qleave_01.mp3"))
+                    pygame.mixer.music.play()
+                self.save_settings()
+                status = "включён" if self.sound_enabled else "выключен"
+                self.write_log(f"[Настройки] Звук: {status}")
 
             elif key == "update":
                 self.check_for_updates_permission = bool(value)
@@ -269,7 +291,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         try:
             for url in (self.updates_endpoint, self.updates_endpoint2):
                 try:
-                    response = requests.get(url, timeout=3)
+                    response = requests.get(url, timeout=5)
                     response.raise_for_status()
                     break
                 except requests.RequestException:
@@ -318,6 +340,20 @@ class LauncherApp(QtWidgets.QMainWindow):
                 os.remove(path)
             self.write_log(f"Скачивание: {url}")
 
+            self._installing = True
+            self.ui.buttons_block.hide()
+            self.ui.news_page.hide()
+            self.ui.online_frame.hide()
+            self.ui.ping_frame.hide()
+            self.ui.fade_overlay2.hide()
+            self.ui.fade_overlay.hide()
+            self.ui.waitlist.hide()
+            self.ui.tab_mods_btn.hide()
+            self.ui.tab_settings_btn.hide()
+            self.ui.tab_installed_mods_btn.hide()
+            self.ui.play_frame.hide()
+
+
             response = requests.get(url, stream=True, timeout=10)
             response.raise_for_status()
             with open(path, "wb") as f:
@@ -346,6 +382,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         settings = {
             "nickname": self.nickname,
             "lang": self.lang,
+            "sound_enabled": self.sound_enabled,
             "update_auto": self.check_for_updates_permission,
             "rpc": self.discord_rpc,
             "snow": self.show_snow,
@@ -382,6 +419,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 rpc = data.get("rpc", True)
                 snow = data.get("snow", True)
                 style = data.get("new_style", True)
+                sound = data.get("sound_enabled", True)
+
                 if is_winter_period():
                     if snow:
                         self.snow.show()
@@ -390,11 +429,14 @@ class LauncherApp(QtWidgets.QMainWindow):
 
                 if nick:
                     self.nickname = nick
+
                 self.show_snow = snow
+                self.sound_enabled = sound
                 self.lang = lang
                 self.new_style = style
                 self.fetcher.set_lang(lang)
                 self.check_for_updates_permission = update
+                self.ui.sound_switch.setChecked(sound)
                 self.ui.update_switch.setChecked(bool(update))
                 self.ui.rpc_switch.setChecked(rpc)
                 self.ui.snow_switch.setChecked(bool(self.show_snow))
@@ -414,6 +456,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.ui.style_switch.setOnColor(new_switch_style)
                     self.ui.rpc_switch.setOnColor(new_switch_style)
                     self.ui.snow_switch.setOnColor(new_switch_style)
+                    self.ui.sound_switch.setOnColor(new_switch_style)
                     self.ui.update_switch.setOnColor(new_switch_style)
                     self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
                     self.ui.lang_dropdown.setTextColor(new_dropdown_style)
@@ -426,6 +469,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.ui.more_btn.setStyleSheet(old_btn_style)
                     self.ui.play_btn.setStyleSheet(old_play_btn_style)
                     self.ui.style_switch.setOnColor(old_switch_style)
+                    self.ui.sound_switch.setOnColor(old_switch_style)
                     self.ui.rpc_switch.setOnColor(old_switch_style)
                     self.ui.snow_switch.setOnColor(old_switch_style)
                     self.ui.update_switch.setOnColor(old_switch_style)
@@ -439,10 +483,33 @@ class LauncherApp(QtWidgets.QMainWindow):
         except Exception as e:
             print(f"Ошибка загрузки настроек: {str(e)}")
 
+    def update_queue_ui(self, player_names):
+        occupied = len(player_names)
+        if self.occupied_last is None:
+            self.occupied_last = occupied
+        
+        if occupied == 10 and self.occupied_last < 10 and self.sound_enabled:
+            try:
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+                
+                sound_path = self.ui.resource_path("assets/qjoin_01.mp3")
+                pygame.mixer.music.load(sound_path)
+                pygame.mixer.music.play()
+                self.write_log(f"Queue full sound played")
+            except Exception as e:
+                self.write_log(f"Sound playback error: {e}")
+        
+        self.occupied_last = occupied
+        self.ui.update_queue(occupied, 10)
+        self.ui.update_names(occupied, player_names)
+        self.ui.update_faceit_height()
+        
     def start_fetching(self):
         self.fetcher.fetch_news_async()
         self.fetcher.fetch_online_async()
-        self.fetcher.fetch_practice_queue_async()
+        self.fetcher.fetch_queue_async()
+        # self.fetcher.fetch_practice_queue_async()
 
     def connect_signals(self):
         self.ui.play_clicked.connect(self.on_play_clicked)
@@ -460,7 +527,8 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.fetcher.newsFetched.connect(self.ui.update_news)
         self.fetcher.onlineFetched.connect(self.ui.update_online_and_ping_labels)
-        self.fetcher.practiceQueueFetched.connect(self.update_practice_widgets)
+        self.fetcher.queueFetched.connect(self.update_queue_ui)
+        # self.fetcher.practiceQueueFetched.connect(self.update_practice_widgets)
 
     def update_practice_widgets(self, searching_clans: list, active_practices: dict):
         if searching_clans:
@@ -693,7 +761,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             "title": "Лог",
             "description": f"\nВремя: {formatted_time}",
             "fields": [
-                {"name": "IP компьютера", "value": ip, "inline": True},
+                {"name": "IP компьютера", "value": "unknown", "inline": True},
             ],
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(ts))
         }
@@ -815,6 +883,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         running = is_mc_running()
 
         if running:
+            pygame.mixer.stop()
             self.ui.media_player.pause()
             self.fetcher.set_game(True)
             self.ui.set_play_status(t(self.lang, "in_game_status"))
@@ -844,8 +913,9 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.show()
             self.ui.set_play_status(t(self.lang, "play_button"))
             self.ui.set_play_enabled(True)
-            if not self.ui.media_player.isPlaying():
-                self.ui.media_player.play()
+            if self.ui.media_player:
+                if self.ui.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+                    self.ui.media_player.play()
 
         if not self.nickname:
             self.ui.play_btn.setText(t(self.lang, "no_nick_found"))
@@ -858,7 +928,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def do_move(self, event):
         if self.old_pos:
-            delta = event.globalPosition() - self.old_pos  # QPointF
+            delta = event.globalPosition() - self.old_pos
             self.move(
                 QPoint(
                     int(self.x() + delta.x()),
@@ -926,6 +996,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         try:
             self.write_log("Closing...")
             self.ui.media_player.stop()
+            pygame.mixer.stop()
             self.close()
             try:
                 last_log = threading.Thread(target=self.submit_logfile)
