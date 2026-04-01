@@ -19,20 +19,20 @@ LOGS_DIR.mkdir(parents=True, exist_ok=True)
 # нода n2 - основная. Ф1 пока что запаска (УЖЕ НЕТУ ЕЁ!)
 VERSION = "1.21.11"
 host = "play.cherry.pizza"
-backend = "https://f1.delonix.cc"
-backend1 = "https://8000.web.delonix.cc"
-news_url = "https://f1.delonix.cc:6443/news/news.json"
-news_url1 = "https://8000.web.delonix.cc/news/news.json"
+backend = "https://"
+backend1 = "https://"
+news_url = "https:///news/news.json"
+news_url1 = "https:///news/news.json"
 
 default_port = "6443"
 
 external_ip_url = "https://api.ipify.org?format=json"
 LAUNCHER_VERSION = "4.2"
-PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/prac"
-ACTIVE_PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/active_prac"
+PRACTICE_QUEUE_URL = "http:///prac"
+ACTIVE_PRACTICE_QUEUE_URL = "http:///active_prac"
 
-QUEUE_URL = "https://8009.web.delonix.cc/queue5vs5"
-QUEUE_URL2 = "http://185.246.223.118:25574/queue5vs5"
+QUEUE_URL = "https:///queue5vs5"
+QUEUE_URL2 = "http:///queue5vs5"
 tabs_style = """
     QPushButton { background-color: #555; color: white; border-radius: 5px; border: none; }
     QPushButton:hover { background-color: #666; }
@@ -104,7 +104,7 @@ new_switch_style = "#fbac18"
 old_dropdown_style = "#FF5722"
 new_dropdown_style = "#fbac18"
 # ну типа отправка логов в дс, первая - дс фасика, вторая - дс практиса
-LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1488902662769479700/eMDuxyaQpmk9XiOGVLruVXGHf8iT3H8yanrJc1t71_VVgc07CxWbUfmDQ6PXR_t191g2"
-LOGS_WEBHOOK_URL2 = "https://discord.com/api/webhooks/1442090141853159514/tdQ3C9ecLsz3ZlHefCwONfEnUsvKLtYgWdEa3mDhGq_nCPhE-ZH5uSZdVuRwXS9xycmK"
+LOGS_WEBHOOK_URL = "https://g2"
+LOGS_WEBHOOK_URL2 = "https://ddVuRwXS9xycmK"
 
 
