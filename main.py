@@ -8,22 +8,27 @@ import subprocess
 import sys
 import urllib.request
 import uuid
-import pygame.mixer
+
 import minecraft_launcher_lib.types
-from PyQt6.QtGui import QMouseEvent
-from psutil import virtual_memory
+import pygame.mixer
 from PyQt6 import QtCore
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtGui import QMouseEvent, QGuiApplication, QPalette
+from PyQt6.QtWidgets import QMessageBox, QGraphicsOpacityEffect, QProgressDialog
 from packaging import version
+from psutil import virtual_memory
 from pypresence import Presence
 
+from scripts.auth import CherryAuth
 from scripts.fetcher import *
 from scripts.ui import *
 from scripts.utilties import *
-from scripts.auth import CherryAuth
 
 
 class LauncherApp(QtWidgets.QMainWindow):
+    show_message_signal = pyqtSignal(str, str)
+    update_download_progress = pyqtSignal(int, int, int)
+    update_download_message = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
 
@@ -31,13 +36,15 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.sound_enabled = True
         self.occupied_last = None
         self.old_pos = None
-        #типа состояния лаунчера
+        # типа состояния лаунчера
         self._launching = False
         self._deleting = False
         self._installing = False
         self._updating = False
-        #ну и просто настройки
+        # ну и просто настройки
         self.check_for_updates_permission = True
+        self._update_cancelled = threading.Event()
+        self.update_progress_dialog = None
         self.new_style = True
         self.discord_rpc = True
         self.nickname = None
@@ -47,7 +54,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.log_file = get_new_logfile(str(MC_DIR))
         self.lang = "ru_ru"
         self.ip = "0.0.0.0"
-
 
         self.setWindowTitle("CounterMine2")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -60,7 +66,8 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.load_settings()
 
-        self.ui.update_ui(self.lang) #обновляю интерфейс сразу после загрузки настроек короче чтобы язык был правильный и тп
+        self.ui.update_ui(
+            self.lang)  # обновляю интерфейс сразу после загрузки настроек короче чтобы язык был правильный и тп
 
         self.ui.setup_mods_search()
         self.ui.setup_mods_label()
@@ -83,18 +90,23 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.ui.snow_label.hide()
             self.ui.snow_switch.hide()
 
+        if sys.platform == 'win32':
+            self.register_url_protocol()
+        else:
+            self.write_log("URL protocol registration skipped: non-Windows platform")
+
         self.start_fetching()
         self.connect_signals()
 
         self.options = minecraft_launcher_lib.types.MinecraftOptions(
             username=self.nickname,
-            uuid=str(uuid.uuid4()), #рандомный, вообще пофиг какой
-            token="0", #токена нету
+            uuid=str(uuid.uuid4()),  # рандомный, вообще пофиг какой
+            token="0",  # токена нету
             quickPlayMultiplayer="play.cherry.pizza",
-            jvmArguments=["-Xmx2g"],
+            jvmArguments=["-Xmx1g"],
             launcherName="CounterMine2 Launcher by raizor",
             launcherVersion=LAUNCHER_VERSION,
-            resourcepack=True #по идее он не поддерживается но постараюсь сделать авторазрешение рпшника
+            resourcepack=True  # по идее он не поддерживается но постараюсь сделать авторазрешение рпшника
         )
 
         # проверяем статусы лаунчера \ игры, возможно не самый топ варик
@@ -102,7 +114,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.mc_timer.timeout.connect(self._check_mc_state)
         self.mc_timer.start(2000)
 
-        #запуск всего бреда
+        # запуск всего бреда
         if self.discord_rpc:
             threading.Thread(target=self.update_rpc, daemon=True).start()
         threading.Thread(target=self.update_mod_info, daemon=True).start()
@@ -110,11 +122,9 @@ class LauncherApp(QtWidgets.QMainWindow):
         threading.Thread(target=self.get_updates, daemon=True).start()
         threading.Thread(target=self.init_mixer, daemon=True).start()
 
-
         self.register_url_protocol()
 
 
-        
         threading.Thread(target=self.auth_manager.check_auth_status, daemon=True).start()
 
     def init_mixer(self):
@@ -141,31 +151,35 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.write_log(f"Failed to get updates: {e}")
 
     def register_url_protocol(self):
+        if sys.platform != 'win32':
+            self.write_log("URL protocol registration is only supported on Windows")
+            return
+
         try:
             import winreg
-            
+
             if getattr(sys, 'frozen', False):
                 exe_path = sys.executable
             else:
                 exe_path = f'"{sys.executable}" "{os.path.abspath(__file__)}"'
-            
+
             protocol_name = "countermine2"
             key_path = rf"Software\Classes\{protocol_name}"
-            
+
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path) as key:
                 winreg.SetValue(key, "", winreg.REG_SZ, f"URL:{protocol_name} Protocol")
                 winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
-            
+
             icon_path = rf"{key_path}\DefaultIcon"
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, icon_path) as key:
                 winreg.SetValue(key, "", winreg.REG_SZ, f"{exe_path},0")
-            
+
             command_path = rf"{key_path}\shell\open\command"
             with winreg.CreateKey(winreg.HKEY_CURRENT_USER, command_path) as key:
                 winreg.SetValue(key, "", winreg.REG_SZ, f'"{exe_path}" "%1"')
-            
+
             self.write_log(f"URL protocol '{protocol_name}://' registered successfully")
-            
+
         except Exception as e:
             self.write_log(f"Failed to register URL protocol: {e}")
 
@@ -175,28 +189,31 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.options["username"] = self.nickname
         self.options["uuid"] = user_data.get("id", str(uuid.uuid4()))
         self.options["token"] = self.auth_manager.tokens.get("access_token", "0")
-        
+
         self.save_settings()
 
-        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection, QtCore.Q_ARG(dict, user_data))
-        
+        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
+                                        QtCore.Q_ARG(dict, user_data))
+
         if self.nickname:
-             self.ui.set_play_enabled(True)
-             self.ui.set_play_status(t(self.lang, "play_button"))
+            self.ui.set_play_enabled(True)
+            self.ui.set_play_status(t(self.lang, "play_button"))
 
     def on_auth_failed(self, error):
         self.write_log(f"Auth failed: {error}")
-        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection, QtCore.Q_ARG(dict, {}))
-        
+        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
+                                        QtCore.Q_ARG(dict, {}))
+
     def on_logged_out(self):
         self.write_log("Logged out")
         self.nickname = None
         self.options["username"] = None
         self.options["token"] = "0"
-        
+
         self.save_settings()
-        
-        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection, QtCore.Q_ARG(dict, {}))
+
+        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
+                                        QtCore.Q_ARG(dict, {}))
 
     def on_settings_changed(self, key: str, value: object):
         try:
@@ -277,7 +294,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 if bool(value):
                     threading.Thread(target=self.update_rpc, daemon=True).start()
                 else:
-                    threading.Thread(target=self.update_rpc, args=[False,], daemon=True).start()
+                    threading.Thread(target=self.update_rpc, args=[False, ], daemon=True).start()
                 self.save_settings()
         except Exception as e:
             self.write_log(str(e))
@@ -320,16 +337,106 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(dict)
     def _ask_update(self, update_data):
+        changelog = update_data.get('changelog', 'Общие улучшения')
+        text = f"Доступна новая версия лаунчера - {update_data['version']}\n\nИзменения:\n{changelog}"
         reply = QtWidgets.QMessageBox.question(
             self,
             "CounterMine2",
-            f"Доступна новая версия лаунчера - {update_data['version']}\n\nИзменения:\n{update_data.get('changelog', 'Общие улучшения')}\n\nЗагрузить и установить?",
+            text,
             QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
             QtWidgets.QMessageBox.StandardButton.Yes
         )
         if reply == QtWidgets.QMessageBox.StandardButton.Yes:
             self._updating = True
+            self._update_cancelled.clear()
+            self.update_progress_dialog = QProgressDialog(
+                t(self.lang, 'download_update_status'),
+                "Отмена",
+                0,
+                100,
+                self
+            )
+            self.update_progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self.update_progress_dialog.setAutoClose(False)
+            self.update_progress_dialog.setAutoReset(False)
+            self.update_progress_dialog.setMinimumDuration(0)
+            self.update_progress_dialog.canceled.connect(self._cancel_update_download)
+            self.update_progress_dialog.show()
             threading.Thread(target=self.perform_update, args=(update_data,), daemon=True).start()
+
+    def _cancel_update_download(self):
+        self._update_cancelled.set()
+        self.update_download_message.emit("Загрузка отменена")
+
+    @QtCore.pyqtSlot()
+    def _close_update_progress_dialog(self):
+        if self.update_progress_dialog:
+            self.update_progress_dialog.close()
+            self.update_progress_dialog = None
+
+    @QtCore.pyqtSlot()
+    def _quit_for_update(self):
+        self.exit_launcher()
+
+    def _parse_etag_size(self, etag: str) -> int:
+        if not etag:
+            return 0
+        etag = etag.strip()
+        if etag.startswith('W/'):
+            etag = etag[2:].strip()
+        etag = etag.strip('"')
+        if '-' in etag:
+            parts = etag.split('-')
+            if len(parts) >= 2:
+                try:
+                    return int(parts[-1])
+                except ValueError:
+                    return 0
+        try:
+            return int(etag)
+        except ValueError:
+            return 0
+
+    def _infer_download_size(self, response, url=None):
+        total = int(response.headers.get('content-length', 0) or 0)
+        if total > 0:
+            return total
+
+        total = self._parse_etag_size(response.headers.get('ETag', '') or response.headers.get('Etag', ''))
+        if total > 0:
+            return total
+
+        content_range = response.headers.get('Content-Range', '')
+        if '/' in content_range:
+            try:
+                total = int(content_range.split('/')[-1])
+            except ValueError:
+                total = 0
+            if total > 0:
+                return total
+
+        if url:
+            try:
+                head_response = requests.head(url, timeout=10)
+                head_response.raise_for_status()
+                total = int(head_response.headers.get('content-length', 0) or 0)
+                if total > 0:
+                    return total
+                total = self._parse_etag_size(head_response.headers.get('ETag', '') or head_response.headers.get('Etag', ''))
+                if total > 0:
+                    return total
+                content_range = head_response.headers.get('Content-Range', '')
+                if '/' in content_range:
+                    try:
+                        total = int(content_range.split('/')[-1])
+                    except ValueError:
+                        total = 0
+                    if total > 0:
+                        return total
+            except Exception:
+                pass
+
+        return 0
 
     def perform_update(self, update_data):
         version = update_data["version"]
@@ -339,44 +446,68 @@ class LauncherApp(QtWidgets.QMainWindow):
             if os.path.exists(path):
                 os.remove(path)
             self.write_log(f"Скачивание: {url}")
-
             self._installing = True
-            self.ui.buttons_block.hide()
-            self.ui.news_page.hide()
-            self.ui.online_frame.hide()
-            self.ui.ping_frame.hide()
-            self.ui.fade_overlay2.hide()
-            self.ui.fade_overlay.hide()
-            self.ui.waitlist.hide()
-            self.ui.tab_mods_btn.hide()
-            self.ui.tab_settings_btn.hide()
-            self.ui.tab_installed_mods_btn.hide()
-            self.ui.play_frame.hide()
-
 
             response = requests.get(url, stream=True, timeout=10)
             response.raise_for_status()
+            total_size = self._infer_download_size(response, url=url)
+            downloaded = 0
             with open(path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
+                    if self._update_cancelled.is_set():
+                        raise RuntimeError("Загрузка отменена")
+                    if not chunk:
+                        continue
                     f.write(chunk)
+                    downloaded += len(chunk)
+                    percent = int(downloaded * 100 / total_size) if total_size else 0
+                    self.update_download_progress.emit(percent, downloaded, total_size)
 
             with open(path, "rb") as f:
                 file_hash = hashlib.sha256(f.read()).hexdigest()
 
             if file_hash.lower() != update_data["checksum_downloader"].lower():
-                return
-            subprocess.Popen(
-                [path, "--update"],
-                cwd=LAUNCHER_DIR,
-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW,
-                shell=False
+                raise RuntimeError("Контрольная сумма не совпадает")
+
+            self.update_download_message.emit(t(self.lang, 'download_update_complete'))
+            QtCore.QMetaObject.invokeMethod(
+                self,
+                "_close_update_progress_dialog",
+                QtCore.Qt.ConnectionType.QueuedConnection
             )
-            self.exit_launcher()
+            popen_kwargs = {
+                'cwd': LAUNCHER_DIR,
+                'shell': False,
+            }
+            if sys.platform == 'win32':
+                popen_kwargs['creationflags'] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+            else:
+                popen_kwargs['start_new_session'] = True
+
+            subprocess.Popen([path, "--update"], **popen_kwargs)
+            QtCore.QMetaObject.invokeMethod(
+                self,
+                "_quit_for_update",
+                QtCore.Qt.ConnectionType.QueuedConnection
+            )
         except Exception as e:
             self.write_log(f"Ошибка обновления: {str(e)}")
             if os.path.exists(path):
                 os.remove(path)
-            self.ui.set_play_status("Играть")
+            QtCore.QMetaObject.invokeMethod(
+                self,
+                "_close_update_progress_dialog",
+                QtCore.Qt.ConnectionType.QueuedConnection
+            )
+            self.ui.set_play_status(t(self.lang, 'play_button'))
+            if str(e) != "Загрузка отменена":
+                QtCore.QMetaObject.invokeMethod(
+                    self,
+                    "_show_message",
+                    QtCore.Qt.ConnectionType.QueuedConnection,
+                    QtCore.Q_ARG(str, "Ошибка обновления"),
+                    QtCore.Q_ARG(str, str(e))
+                )
 
     def save_settings(self):
         settings = {
@@ -386,7 +517,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             "update_auto": self.check_for_updates_permission,
             "rpc": self.discord_rpc,
             "snow": self.show_snow,
-            "new_style" : self.new_style
+            "new_style": self.new_style
         }
         try:
             with open(LAUNCHER_DIR / "settings.json", "w", encoding="utf-8") as f:
@@ -408,7 +539,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def load_settings(self):
         try:
-            if not os.path.exists(LAUNCHER_DIR/"settings.json"):
+            if not os.path.exists(LAUNCHER_DIR / "settings.json"):
                 self.save_settings()
 
             with open(LAUNCHER_DIR / "settings.json", "r", encoding="utf-8") as f:
@@ -483,28 +614,144 @@ class LauncherApp(QtWidgets.QMainWindow):
         except Exception as e:
             print(f"Ошибка загрузки настроек: {str(e)}")
 
+    def _show_match_notification(self):
+        if hasattr(self, "notif") and self.notif:
+            self.notif.close()
+
+
+        self.notif = QWidget()
+        self.notif.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.Tool
+        )
+        self.notif.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.notif.setFixedSize(330, 80)
+
+        label = QLabel("МАТЧ НАЧИНАЕТСЯ", self.notif)
+        label.setGeometry(0, 0, 300, 80)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        base_style = """
+            QLabel {
+                background-color: rgba(40, 40, 40, 190);
+                border-radius: 10px;
+                font-size: 26px;
+                font-weight: bold;
+            }
+        """
+        label.setStyleSheet(base_style)
+
+        close_btn = QPushButton("✕", self.notif)
+        close_btn.setFixedSize(30, 30)
+        close_btn.move(275, 25)
+
+        close_btn.setStyleSheet("""
+            QPushButton {
+                color: rgba(0, 180, 200, 250);
+                border: none;
+                border-radius: 8px;
+                font-size: 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                color: rgba(70, 250, 70, 220);
+            }
+        """)
+
+        palette1 = label.palette()
+        palette1.setColor(QPalette.ColorRole.WindowText, QColor(255, 255, 255))
+        label.setPalette(palette1)
+        label.setAutoFillBackground(False)
+
+        screen = QGuiApplication.primaryScreen().geometry()
+        end_x = 10
+        y = 20
+        start_x = -310
+
+        self.notif.move(start_x, y)
+        self.notif.show()
+
+        if self.sound_enabled:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+
+            sound_path = self.ui.resource_path("assets/qjoin_01.mp3")
+            pygame.mixer.music.load(sound_path)
+            pygame.mixer.music.play()
+
+        self.anim_in = QPropertyAnimation(self.notif, b"pos")
+        self.anim_in.setDuration(400)
+        self.anim_in.setStartValue(QPoint(start_x, y))
+        self.anim_in.setEndValue(QPoint(end_x, y))
+        self.anim_in.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim_in.start()
+
+        self._color_phase = False
+
+        def manual_close():
+            self.pulse_timer.stop()
+
+            self.anim_out = QPropertyAnimation(self.notif, b"pos")
+            self.anim_out.setDuration(400)
+            self.anim_out.setStartValue(self.notif.pos())
+            self.anim_out.setEndValue(QPoint(start_x, y))
+            self.anim_out.setEasingCurve(QEasingCurve.Type.InCubic)
+            self.anim_out.start()
+
+            self.anim_out.finished.connect(self.notif.close)
+
+        close_btn.clicked.connect(manual_close)
+
+        def pulse_color():
+            if self.sound_enabled:
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+
+                sound_path = self.ui.resource_path("assets/qstart.mp3")
+                pygame.mixer.music.load(sound_path)
+                pygame.mixer.music.play()
+            self._color_phase = not self._color_phase
+            color = QColor(255, 10, 10) if self._color_phase else QColor(255, 255, 255)
+
+            palette = label.palette()
+            palette.setColor(QPalette.ColorRole.WindowText, color)
+            label.setPalette(palette)
+
+        self.pulse_timer = QTimer()
+        self.pulse_timer.timeout.connect(pulse_color)
+        self.pulse_timer.start(1000)
+
+        def hide_anim():
+            self.pulse_timer.stop()
+
+            self.anim_out = QPropertyAnimation(self.notif, b"pos")
+            self.anim_out.setDuration(400)
+            self.anim_out.setStartValue(QPoint(end_x, y))
+            self.anim_out.setEndValue(QPoint(start_x, y))
+            self.anim_out.setEasingCurve(QEasingCurve.Type.InCubic)
+            self.anim_out.start()
+
+            self.anim_out.finished.connect(self.notif.close)
+
+        QTimer.singleShot(20000, hide_anim)
+
     def update_queue_ui(self, player_names):
         occupied = len(player_names)
         if self.occupied_last is None:
             self.occupied_last = occupied
-        
-        if occupied == 10 and self.occupied_last < 10 and self.sound_enabled:
+
+        if occupied == 0 and self.occupied_last == 9 and self.nickname in player_names:
             try:
-                if not pygame.mixer.get_init():
-                    pygame.mixer.init()
-                
-                sound_path = self.ui.resource_path("assets/qjoin_01.mp3")
-                pygame.mixer.music.load(sound_path)
-                pygame.mixer.music.play()
-                self.write_log(f"Queue full sound played")
+                self._show_match_notification()
             except Exception as e:
                 self.write_log(f"Sound playback error: {e}")
-        
+
         self.occupied_last = occupied
         self.ui.update_queue(occupied, 10)
         self.ui.update_names(occupied, player_names)
         self.ui.update_faceit_height()
-        
+
     def start_fetching(self):
         self.fetcher.fetch_news_async()
         self.fetcher.fetch_online_async()
@@ -528,7 +775,36 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.fetcher.newsFetched.connect(self.ui.update_news)
         self.fetcher.onlineFetched.connect(self.ui.update_online_and_ping_labels)
         self.fetcher.queueFetched.connect(self.update_queue_ui)
-        # self.fetcher.practiceQueueFetched.connect(self.update_practice_widgets)
+
+        self.show_message_signal.connect(self._show_message)
+        self.update_download_progress.connect(self._on_update_download_progress)
+        self.update_download_message.connect(self._on_update_download_message)
+
+    @QtCore.pyqtSlot(int, int, int)
+    def _on_update_download_progress(self, percent, downloaded, total_size):
+        if not self.update_progress_dialog:
+            return
+        if total_size > 0:
+            if self.update_progress_dialog.maximum() == 0:
+                self.update_progress_dialog.setRange(0, 100)
+            self.update_progress_dialog.setValue(percent)
+            downloaded_mb = downloaded / 1024 / 1024
+            total_mb = total_size / 1024 / 1024
+            self.update_progress_dialog.setLabelText(
+                f"{t(self.lang, 'download_update_status')} {percent}% — {downloaded_mb:.1f}/{total_mb:.1f} МБ"
+            )
+        else:
+            if self.update_progress_dialog.maximum() != 0:
+                self.update_progress_dialog.setRange(0, 0)
+            downloaded_mb = downloaded / 1024 / 1024
+            self.update_progress_dialog.setLabelText(
+                f"{t(self.lang, 'download_update_status')} {downloaded_mb:.1f} МБ"
+            )
+
+    @QtCore.pyqtSlot(str)
+    def _on_update_download_message(self, message):
+        if self.update_progress_dialog:
+            self.update_progress_dialog.setLabelText(message)
 
     def update_practice_widgets(self, searching_clans: list, active_practices: dict):
         if searching_clans:
@@ -560,7 +836,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                         start=int(time.time()),
                         buttons=[
                             {"label": "Сайт", "url": "https://cherry.pizza"},
-                            {"label": "Discord", "url": "https://discord.gg/2wbp5aYZtF"}
+                            {"label": "Discord", "url": "https://discord.gg/2wbp5aYZtF"},
+                            {"label": "Лаунчер", "url": "https://discord.gg/Gg2fy7VzEV"}
                         ]
                     )
                     self.write_log(f"Установлена интеграция с дискордом ")
@@ -570,7 +847,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             if self.rpc:
                 try:
                     details = "Играет в CounterMine2"
-                    state = f"Сервер: play.cherry.pizza"
+                    state = f"Сервер: play.cherry.pizza | Версия: {VERSION}"
                     self.rpc.update(
                         details=details,
                         state=state,
@@ -579,7 +856,9 @@ class LauncherApp(QtWidgets.QMainWindow):
                         start=int(time.time()),
                         buttons=[
                             {"label": "Сайт", "url": "https://cherry.pizza"},
-                            {"label": "Discord", "url": "https://discord.gg/2wbp5aYZtF"}
+                            {"label": "Discord", "url": "https://discord.gg/2wbp5aYZtF"},
+                            {"label": "Лаунчер", "url": "https://discord.gg/Gg2fy7VzEV"}
+
                         ]
                     )
                     self.write_log(f"RPC обновлен: {details} | {state}")
@@ -590,9 +869,9 @@ class LauncherApp(QtWidgets.QMainWindow):
             try:
                 if self.rpc:
                     self.rpc.close()
-            except Exception: pass
+            except Exception:
+                pass
             self.rpc = None
-
 
     def reinstall_client(self):
         reply = QtWidgets.QMessageBox.question(
@@ -607,7 +886,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             self._deleting = True
             QtCore.QTimer.singleShot(0,
                                      lambda: self.ui.set_play_status(t(self.lang, "cleanup_status")))
-            time.sleep(0.2)
 
             def process_delete():
                 for file in os.listdir(str(MC_DIR)):
@@ -632,8 +910,6 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def open_game_directory(self):
         subprocess.Popen(['explorer.exe', str(MC_DIR)])
-
-
 
     def update_mod_info(self, specific_slug=None):
         if specific_slug:
@@ -715,7 +991,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         mem = virtual_memory()
         total_mb = mem.total // (1024 * 1024)
         available_gb = mem.available / (1024 ** 3)
-        if available_gb < 2:
+        if available_gb < 1:
             self._launching = False
             msg = QMessageBox(self)
             msg.setWindowTitle(t(self.lang, "not_enough_mem_title"))
@@ -731,14 +1007,14 @@ class LauncherApp(QtWidgets.QMainWindow):
         elif available_gb > 8:
             return min(total_mb // 3, 4096)
         else:
-            return 2048
+            return 1024
 
     def write_log(self, msg):
-        if os.path.exists(self.log_file):
-            with open(self.log_file, "a", encoding="utf-8") as f:
-                f.write(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {str(msg)}\n")
-                f.flush()
-                f.close()
+        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+
+        with open(self.log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {str(msg)}\n")
+            f.flush()
 
     def on_play_clicked(self):
         self._launching = True
@@ -756,6 +1032,32 @@ class LauncherApp(QtWidgets.QMainWindow):
         ts = int(time.time())
         formatted_time = f"<t:{ts}:T>"
         ip = getattr(self, "ip", "unknown")
+
+        with open(self.log_file, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+
+        skip = (
+            "codepoint '20' declared multiple times",
+            "missing textures in model",
+            "missing texture references in model",
+            "particle",
+            "minecraft:block_or_item:cstrike",
+            "tournamentadmin",
+            "worlddownloader",
+            "saved chunk nbt for",
+            "ignoring chunk since",
+            "unable to play unknown"
+        )
+
+        filtered = []
+        for line in lines:
+            clean_line = line.strip().lower()
+
+            if not any(s in clean_line for s in skip):
+                filtered.append(line)
+
+        with open(self.log_file, "w", encoding="utf-8") as f:
+            f.writelines(filtered)
 
         embed = {
             "title": "Лог",
@@ -833,7 +1135,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self._installing = False
                 msg.setWindowTitle(t(self.lang, "game_error_title"))
                 msg.setText(
-                    t(self.lang, "Не найден загрузчик fabric! Попробуйте переустановить клиент (Кнопка справа от Играть)")
+                    t(self.lang,
+                      "Не найден загрузчик fabric! Попробуйте переустановить клиент (Кнопка справа от Играть)")
                 )
                 msg.setIcon(QMessageBox.Icon.Warning)
                 msg.exec()
@@ -842,16 +1145,20 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.write_log("Команда запуска: " + " ".join(cmd))
 
             with open(self.log_file, "a", encoding="utf-8") as f:
-                self.process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    cwd=str(MC_DIR),
-                    bufsize=1,
-                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-                    encoding="UTF-8"
-                )
+                popen_kwargs = {
+                    'cwd': str(MC_DIR),
+                    'stdout': subprocess.PIPE,
+                    'stderr': subprocess.STDOUT,
+                    'text': True,
+                    'bufsize': 1,
+                    'encoding': "UTF-8",
+                }
+                if sys.platform == 'win32':
+                    popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                else:
+                    popen_kwargs['start_new_session'] = True
+
+                self.process = subprocess.Popen(cmd, **popen_kwargs)
                 self.write_log("Процесс запущен")
 
                 for line in self.process.stdout:
@@ -866,18 +1173,23 @@ class LauncherApp(QtWidgets.QMainWindow):
             if self.process.returncode:
                 self._launching = False
                 self._installing = False
-                msg = QMessageBox(self)
-                msg.setWindowTitle(t(self.lang, "game_error_title"))
-                msg.setText(
+
+                self.show_message_signal.emit(
+                    t(self.lang, "game_error_title"),
                     t(self.lang, "game_error_text")
                 )
-                msg.setIcon(QMessageBox.Icon.Warning)
-                msg.exec()
 
 
 
         except Exception as e:
             self.write_log(str(e))
+
+    def _show_message(self, title, text):
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.exec()
 
     def _check_mc_state(self):
         running = is_mc_running()
@@ -891,6 +1203,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             self._launching = False
             self._installing = False
             self.hide()
+            self._clear_caches()
         elif self._launching and not self._installing:
             self.fetcher.set_game(False)
             self.ui.set_play_status(t(self.lang, "launching_status"))
@@ -914,7 +1227,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.ui.set_play_status(t(self.lang, "play_button"))
             self.ui.set_play_enabled(True)
             if self.ui.media_player:
-                if self.ui.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+                if self.ui.media_player.playbackState() != QMediaPlayer.PlaybackState.PlayingState:
                     self.ui.media_player.play()
 
         if not self.nickname:
@@ -992,9 +1305,36 @@ class LauncherApp(QtWidgets.QMainWindow):
             if removed:
                 self.ui.update_resourcepack_status(slug, "remove")
 
+    def _clear_caches(self):
+        try:
+            for button in self.ui.mod_buttons.values():
+                button.deleteLater()
+            for card in self.ui.mod_cards.values():
+                card.deleteLater()
+            for label in self.ui.mod_labels.values():
+                label.deleteLater()
+            
+            self.ui.mod_buttons.clear()
+            self.ui.mod_cards.clear()
+            self.ui.mod_labels.clear()
+            
+            if len(self.ui.news_data) > 20:
+                self.ui.news_data = self.ui.news_data[:20]
+            
+            self.ui.shaders_data.clear()
+            self.ui.resourcepacks_data.clear()
+            self.ui.shader_buttons.clear()
+            self.ui.resourcepack_buttons.clear()
+            
+            self.write_log("[Memory] Кеши очищены")
+        except Exception as e:
+            self.write_log(f"[Memory] Ошибка очистки кешей: {e}")
+
     def exit_launcher(self):
         try:
             self.write_log("Closing...")
+            self.mc_timer.stop()
+            self.fetcher.stop()
             self.ui.media_player.stop()
             pygame.mixer.stop()
             self.close()
@@ -1002,7 +1342,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 last_log = threading.Thread(target=self.submit_logfile)
                 last_log.start()
                 last_log.join()
-            except: pass
+            except:
+                pass
             sys.exit(0)
         except Exception as e:
             print(e)

@@ -55,7 +55,7 @@ translations = {
         "not_enough_mem_title": "Недостаточно памяти",
         "not_enough_mem_text": "Не удалось запустить игру\n"
                                "Слишком мало оперативной памяти\n"
-                               "Необходимо: 2 ГБ\n"
+                               "Необходимо: 1 ГБ\n"
                                "Свободно: {free} ГБ",
         "no_nick_found": "Войдите в аккаунт\nв Настройках",
         "install_status": "Установка",
@@ -121,7 +121,7 @@ translations = {
         "not_enough_mem_title": "Not enough memory",
         "not_enough_mem_text": "Launcher was unable to launch the game\n"
                                "There is not enough operating memory\n"
-                               "Minimal memory: 2 GB\n"
+                               "Minimal memory: 1 GB\n"
                                "Free: {free} GB",
         "no_nick_found": "Enter nick\n in Information\ntab",
         "install_status": "Installing",

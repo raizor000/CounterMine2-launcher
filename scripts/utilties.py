@@ -1,10 +1,18 @@
 import random
 import re
+import sys
 from math import cos, sin, pi
 
 import minecraft_launcher_lib
+import psutil
 import requests
-import win32gui
+try:
+    if sys.platform == "win32":
+        import win32gui
+    else:
+        win32gui = None
+except ImportError:
+    win32gui = None
 from PIL import Image
 from PyQt6.QtCore import pyqtSignal, QPropertyAnimation, Qt, QEasingCurve, QRectF, QTimer, QPointF
 from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath, QCursor, QLinearGradient
@@ -93,15 +101,30 @@ def is_fabric_installed(mc_path: str, vanilla_version: str) -> bool:  # тупо
 
 
 def is_mc_running() -> bool:  # так лучше т.к нет нагрузки на проц в отличии если перебор процессов
-    def enum_callback(hwnd, result):
-        if win32gui.IsWindowVisible(hwnd):
-            title = win32gui.GetWindowText(hwnd)
-            if "Minecraft" in title and VERSION in title:
-                result.append(True)
+    if win32gui is not None:
+        def enum_callback(hwnd, result):
+            if win32gui.IsWindowVisible(hwnd):
+                title = win32gui.GetWindowText(hwnd)
+                if "Minecraft" in title and VERSION in title:
+                    result.append(True)
 
-    found = []
-    win32gui.EnumWindows(enum_callback, found)
-    return bool(found)
+        found = []
+        win32gui.EnumWindows(enum_callback, found)
+        return bool(found)
+
+    try:
+        for proc in psutil.process_iter(['name', 'cmdline']):
+            info = proc.info
+            name = (info.get('name') or '').lower()
+            cmdline = ' '.join(info.get('cmdline') or []).lower()
+            if 'minecraft' in name or 'minecraft' in cmdline:
+                return True
+            if 'java' in name and 'minecraft' in cmdline:
+                return True
+    except Exception:
+        pass
+
+    return False
 
 
 def t(lang, key):

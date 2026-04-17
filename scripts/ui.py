@@ -99,6 +99,8 @@ class LauncherUI(QWidget):
         self.resourcepacks_data = []
         self.shader_buttons = {}
         self.resourcepack_buttons = {}
+        self.installed_mods_initialized = False
+        self.installed_mods_dirty = True
         self.information_container = None
         self.moresettings_container = None
 
@@ -164,7 +166,7 @@ class LauncherUI(QWidget):
 
         self.header_frame = QFrame(self)
         self.header_frame.setGeometry(0, 0, ww, 40)
-        self.header_frame.setStyleSheet("background-color: rgba(50,50,50,190);")
+        self.header_frame.setStyleSheet("background-color: rgba(40, 40, 40, 190)")
 
         self.logo = QLabel(self.header_frame)
         self.logo_pix = QPixmap(self.resource_path("assets/logo.png"))
@@ -217,6 +219,7 @@ class LauncherUI(QWidget):
         self.separator_ending.setFixedWidth(3)
         self.separator_ending.setFixedHeight(self.logo.height())
         self.separator_ending.setGeometry(self.tab_settings_btn.x() + self.tab_settings_btn.width() + 10, 8, 2, 24)
+
 
         self.close_btn = QPushButton("✕", self.header_frame)
         self.close_btn.setGeometry(ww - 40, 5, 30, 30)
@@ -676,7 +679,7 @@ class LauncherUI(QWidget):
         self.buttons_block.setGeometry(self.width() - right_offset - (button_size + 24), block_top, button_size + 24,
                                        block_height + 20)
         self.buttons_block.setStyleSheet(
-            "background-color: rgba(50,50,50,140); border-radius:10px; padding:2px; border: 1px solid rgba(255, 255, 255, 40);")
+            "background-color: rgba(40, 40, 40, 100); border-radius:10px; padding:2px; border: 1px solid rgba(255, 255, 255, 40);")
 
         icons = [("telegram.png", "https://t.me/countermine2"),
                  ("youtube.png", "https://www.youtube.com/@CounterMine2"),
@@ -1003,10 +1006,10 @@ class LauncherUI(QWidget):
 
     def toggle_faceit_queue(self):
         self.faceit_expanded = not self.faceit_expanded
-        self.faceit_content.setVisible(self.faceit_expanded)
         self.toggle_faceit_btn.setText("−" if self.faceit_expanded else "+")
 
         if self.faceit_expanded:
+            self.faceit_content.setVisible(True)
             target_faceit_height = max(self.waitlist.sizeHint().height(), 120)
 
             self.prac_expanded = False
@@ -1041,6 +1044,12 @@ class LauncherUI(QWidget):
         self.anim_height2.setStartValue(self.waitlist.maximumHeight())
         self.anim_height2.setEndValue(target_faceit_height)
         self.anim_height2.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        if not self.faceit_expanded:
+            def on_faceit_collapsed():
+                self.faceit_content.setVisible(False)
+                self.anim_height1.finished.disconnect(on_faceit_collapsed)
+            self.anim_height1.finished.connect(on_faceit_collapsed)
 
         self.anim_height1.start()
         self.anim_height2.start()
@@ -1704,7 +1713,10 @@ class LauncherUI(QWidget):
                 self.news_page.raise_()
                 self.fade_overlay.raise_()
             elif index == 3:
-                self._populate_installed_mods()
+                if not self.installed_mods_initialized or self.installed_mods_dirty:
+                    self._populate_installed_mods()
+                    self.installed_mods_initialized = True
+                    self.installed_mods_dirty = False
 
         except Exception as e:
             print(e)
@@ -1733,15 +1745,12 @@ class LauncherUI(QWidget):
                                     data = json.loads(f.read().decode('utf-8'))
                                     mod_info["name"] = data.get("name", mod_info["name"])
                                     mod_info["desc"] = data.get("description", mod_info["desc"])
-                                    # We keep the slug guess for Modrinth actions,
-                                    # but the ID from JSON might be more accurate for local ID
                                     json_id = data.get("id")
                                     if json_id:
                                         mod_info["mod_id"] = json_id
                     except Exception as e:
                         print(f"Error reading mod {file}: {e}")
 
-                    # Try to match with modrinth data if available
                     mod_data = next((m for m in self.mods_data if m["slug"] == mod_info["slug"]), None)
                     if mod_data:
                         mod_info["desc"] = mod_data.get("desc", mod_info["desc"])
@@ -1862,6 +1871,7 @@ class LauncherUI(QWidget):
         return QApplication.primaryScreen()
 
     def _remove_installed_item(self, slug: str, item_type: str, filename: str = None):
+        self.installed_mods_dirty = True
         if item_type == "mod":
             self.mod_action.emit(filename if filename else slug, "remove")
 
@@ -1935,7 +1945,7 @@ class LauncherUI(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        self.news_data = news_list
+        self.news_data = news_list[:50] if len(news_list) > 50 else news_list
 
         if not news_list:
             news_list = [{
@@ -2126,10 +2136,23 @@ class LauncherUI(QWidget):
         return is_mod_installed(str(MC_DIR), slug)
 
     def _clear_mods(self):
+        for button in self.mod_buttons.values():
+            button.deleteLater()
+        for card in self.mod_cards.values():
+            card.deleteLater()
+        for labels in self.mod_labels.values():
+            if isinstance(labels, (list, tuple)):
+                for label in labels:
+                    if hasattr(label, 'deleteLater'):
+                        label.deleteLater()
+            elif hasattr(labels, 'deleteLater'):
+                labels.deleteLater()
+        
         while self.mods_layout.count():
             item = self.mods_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        
         self.mod_cards.clear()
         self.mod_buttons.clear()
         self.mod_labels.clear()
