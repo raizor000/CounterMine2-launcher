@@ -62,7 +62,12 @@ class Fetcher(QObject):
         while not self._stop_event.is_set():
             if not self.in_game:
                 try:
-                    resp = requests.get(QUEUE_URL2, timeout=5)
+                    resp = requests.post(
+                        QUEUE_URL2,
+                        json={"action": "queue5vs5"},
+                        timeout=5
+                    )
+
                     if resp.status_code == 200:
                         data = resp.json()
                         players = data.get("ru", [])
@@ -74,11 +79,13 @@ class Fetcher(QObject):
                                 names.append((str(nick).strip(), str(rating).strip()))
                     else:
                         names = []
+
                 except Exception as e:
                     names = []
                     print(f"[Queue Fetcher] Error: {e}")
 
                 self.queueFetched.emit(names)
+
                 if self._stop_event.wait(5):
                     break
             else:

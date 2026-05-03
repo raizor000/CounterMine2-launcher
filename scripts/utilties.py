@@ -68,8 +68,7 @@ def download_with_progress(version: str, mc_path: str, progress_callback):
         minecraft_launcher_lib.install.install_minecraft_version(version, mc_path, callback)
         minecraft_launcher_lib.fabric.install_fabric(version, mc_path, callback=callback)
     except Exception as e:
-        print(e)
-
+        print(f"Ошибка при загрузке версии {version}: {e}")
 
 def get_new_logfile(base_dir: str, prefix: str = "launcher") -> str:
     files = [f for f in os.listdir(base_dir) if f.startswith(prefix) and f.endswith(".log")]

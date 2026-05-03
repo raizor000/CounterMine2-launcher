@@ -1325,10 +1325,9 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.ui.resourcepacks_data.clear()
             self.ui.shader_buttons.clear()
             self.ui.resourcepack_buttons.clear()
-            
-            self.write_log("[Memory] Кеши очищены")
+
         except Exception as e:
-            self.write_log(f"[Memory] Ошибка очистки кешей: {e}")
+            pass
 
     def exit_launcher(self):
         try:
@@ -1365,6 +1364,7 @@ try:
     win.raise_()
     win.activateWindow()
     win.setFocus()
+
     sys.exit(app.exec())
 except Exception as e:
     print(e)

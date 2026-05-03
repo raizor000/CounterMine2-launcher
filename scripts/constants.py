@@ -16,22 +16,22 @@ MODS_CACHE.mkdir(parents=True, exist_ok=True)
 RP_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-# нода n2 - основная. Ф1 пока что запаска (УЖЕ НЕТУ ЕЁ!)
 VERSION = "1.21.11"
 host = "play.cherry.pizza"
-backend = "https://fx.cc"
-backend1 = "https://8nix.cc"
-news_url = "https://f1.delonix.ews.json"
-news_url1 = "https://8000.w/news.json"
+backend = "https://f1.delonix.cc"
+backend1 = "http://n1.delonix.one:8000"
+news_url = "https://f1.delonix.cc:6443/news/news.json"
+news_url1 = "http://n1.delonix.one:8000/news/news.json"
 
-default_port = "6443"
+default_port = "8000"
 
 external_ip_url = "https://api.ipify.org?format=json"
 LAUNCHER_VERSION = "4.3"
-PRACTICE_QUEUE_URL = "http://51/prac"
-ACTIVE_PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/
-QUEUE_URL = "https://80.cc/queue5vs5"
-QUEUE_URL2 = "http://18574/queue5vs5"
+PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/prac"
+ACTIVE_PRACTICE_QUEUE_URL = "http://51.75.118.149:20169/active_prac"
+
+QUEUE_URL = "https://8009.web.delonix.cc/queue5vs5"
+QUEUE_URL2 = "http://n1.delonix.one:8001/ranked/api"
 tabs_style = """
     QPushButton { background-color: #555; color: white; border-radius: 5px; border: none; }
     QPushButton:hover { background-color: #666; }
@@ -103,7 +103,7 @@ new_switch_style = "#fbac18"
 old_dropdown_style = "#FF5722"
 new_dropdown_style = "#fbac18"
 # ну типа отправка логов в дс, первая - дс фасика, вторая - дс практиса
-LOGS_WEBHOOK_URL = "https://discord.com/8iT3H8yanrJc1t71_VVgc07CxWbUfmDQ6PXR_t191g2"
-LOGS_WEBHOOK_URL2 = "https://discord.com/apiCPhE-ZH5uSZdVuRwXS9xycmK"
+LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1488902662769479700/eMDuxyaQpmk9XiOGVLruVXGHf8iT3H8yanrJc1t71_VVgc07CxWbUfmDQ6PXR_t191g2"
+LOGS_WEBHOOK_URL2 = "https://discord.com/api/webhooks/1442090141853159514/tdQ3C9ecLsz3ZlHefCwONfEnUsvKLtYgWdEa3mDhGq_nCPhE-ZH5uSZdVuRwXS9xycmK"
 
 
