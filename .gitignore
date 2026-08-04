@@ -1,0 +1,6 @@
+/scripts/plugins/
+/scripts/internal/3D/viewer/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
