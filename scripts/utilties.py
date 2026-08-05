@@ -148,6 +148,10 @@ class AnimatedCountLabel(QLabel):
         self.animation.setStartValue(self._current_value)
         self.animation.setEndValue(new_value)
         self.animation.start()
+
+    def update_language(self, lang):
+        self.lang = lang
+        self.setText(t(self.lang, "online_label").format(count=self._current_value))
         
 from datetime import date
 
