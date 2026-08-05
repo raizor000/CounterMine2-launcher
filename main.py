@@ -2,6 +2,8 @@
 import datetime
 import gzip
 import hashlib
+import threading
+import time
 import io
 import json
 import os.path
@@ -11,6 +13,12 @@ import sys
 import urllib.request
 import uuid
 import zipfile
+import shutil
+import sys
+if sys.platform == 'win32':
+    import winreg
+else:
+    winreg = None
 import minecraft_launcher_lib.types
 from PyQt6.QtCore import QPoint, Qt, QCoreApplication
 from PyQt6 import QtCore, QtWidgets
@@ -95,6 +103,7 @@ class LauncherApp(QtWidgets.QMainWindow):
     show_message_signal = pyqtSignal(str, str)
     update_download_progress = pyqtSignal(int, int, int)
     update_download_message = pyqtSignal(str)
+    plugin_updates_checked = pyqtSignal()
     log_signal = pyqtSignal(str, str)
 
     def __init__(self):
@@ -165,6 +174,8 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.plugin_manager = PluginManager(self)
         self.plugin_manager.load_internal_plugins()
         self.plugin_manager.load_plugins()
+
+        threading.Thread(target=self._check_for_plugin_updates_async, daemon=True).start()
 
         self.ui.update_ui(self.lang)  
         self.ui.header_frame.mousePressEvent = self.start_move
@@ -248,6 +259,17 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.write_log("Перезапуск лаунчера...")
         current_executable = sys.executable
         os.execl(current_executable, current_executable, *sys.argv)
+
+    def _check_for_plugin_updates_async(self):
+        """Fetches remote plugin list and checks for updates for installed plugins."""
+        time.sleep(5)
+        self.write_log("[Update] Starting background check for plugin updates...")
+        if self.fetch_remote_plugins():
+            self.plugin_manager.check_for_updates()
+            self.write_log("[Update] Background plugin update check finished.")
+            self.plugin_updates_checked.emit()
+        else:
+            self.write_warn("[Update] Could not fetch remote plugin list for update check.")
 
     @property
     def is_cs2_theme_active(self) -> bool:
@@ -522,6 +544,11 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.auth_manager.auth_failed.connect(self.on_auth_failed)
         self.auth_manager.logged_out.connect(self.on_logged_out)
 
+        self.plugin_updates_checked.connect(lambda:
+            QtCore.QMetaObject.invokeMethod(self.ui, "_populate_plugins", QtCore.Qt.ConnectionType.QueuedConnection)
+            if self.ui.plugins_manager_container.isVisible() and not self.ui.plugin_market_view
+            else None
+        )
         self.fetcher.newsFetched.connect(self.ui.update_news)
         self.fetcher.onlineFetched.connect(self.ui.update_online_and_ping_labels)
 
@@ -599,7 +626,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                             if os.path.isfile(file_path):
                                 os.remove(file_path)
                             elif os.path.isdir(file_path):
-                                import shutil
                                 shutil.rmtree(file_path)
                         except Exception as e:  
                             self.write_log(f"Ошибка при удалении файла/папки {file}: {str(e)}")
@@ -624,7 +650,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             exact_path = os.path.join(mods_dir_path, mod_slug)
             if os.path.exists(exact_path):
                 if os.path.isdir(exact_path):
-                    import shutil
                     shutil.rmtree(exact_path)
                 else:
                     os.remove(exact_path)
@@ -771,6 +796,17 @@ class LauncherApp(QtWidgets.QMainWindow):
                 return 1
             def progress_callback(progress):
                 self.ui.play_btn.setText(f"{t(self.lang, 'install_status')} {progress}")
+
+            # Add servers to server list
+            servers_to_add = [
+                {"name": "Counter-Mine 2", "ip": "direct.cherry.pizza"},
+                {"name": "Counter-Mine 2 (резерв)", "ip": "auth-tcpshield.cherry.pizza"}
+            ]
+            try:
+                create_servers_dat(servers_to_add, str(MC_DIR))
+                self.write_log(f"Файл servers.dat успешно создан с {len(servers_to_add)} серверами.")
+            except Exception as e:
+                self.write_error(f"Не удалось создать servers.dat: {e}")
 
             if not is_fabric_installed(str(MC_DIR), VERSION):
                 self._launching = False
@@ -926,7 +962,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             exact_path = os.path.join(dir_path, slug)
             if os.path.exists(exact_path):
                 if os.path.isdir(exact_path):
-                    import shutil
                     shutil.rmtree(exact_path)
                 else:
                     os.remove(exact_path)
@@ -936,7 +971,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                     if slug.lower() in file.lower():
                         full_p = os.path.join(dir_path, file)
                         if os.path.isdir(full_p):
-                            import shutil
                             shutil.rmtree(full_p)
                         else:
                             os.remove(full_p)
@@ -953,7 +987,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             exact_path = os.path.join(dir_path, slug)
             if os.path.exists(exact_path):
                 if os.path.isdir(exact_path):
-                    import shutil
                     shutil.rmtree(exact_path)
                 else:
                     os.remove(exact_path)
@@ -963,7 +996,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                     if slug.lower() in file.lower():
                         full_p = os.path.join(dir_path, file)
                         if os.path.isdir(full_p):
-                            import shutil
                             shutil.rmtree(full_p)
                         else:
                             os.remove(full_p)
@@ -1002,6 +1034,21 @@ class LauncherApp(QtWidgets.QMainWindow):
 os.environ["QT_MULTIMEDIA_PREFERRED_PLUGINS"] = "windowsmediafoundation"
 # os.environ["QT_QUICK_BACKEND"] = "software"
 
+def qt_message_handler(mode, context, message):
+    if not message.strip():
+        return
+
+    level = "INFO"
+    if mode == QtCore.Qt.MsgType.QtDebugMsg:    level = "INFO"
+    elif mode == QtCore.Qt.MsgType.QtInfoMsg:   level = "INFO"
+    elif mode == QtCore.Qt.MsgType.QtWarningMsg:level = "WARN"
+    elif mode == QtCore.Qt.MsgType.QtCriticalMsg:level = "ERROR"
+    elif mode == QtCore.Qt.MsgType.QtFatalMsg:  level = "ERROR"
+
+    if 'win' in globals():
+        win.write_log(f"[Qt] {message}", level)
+
+
 try:
     app = QtWidgets.QApplication(sys.argv)
 
@@ -1009,6 +1056,7 @@ try:
         sys.exit(0)
 
     win = LauncherApp()
+    QtCore.qInstallMessageHandler(qt_message_handler)
     server = create_server(win)
 
     win.show()

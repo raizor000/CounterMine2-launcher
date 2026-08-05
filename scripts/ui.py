@@ -905,6 +905,7 @@ class LauncherUI(QWidget):
 
             threading.Thread(target=self._load_market_data, daemon=True).start()
         else:
+            self.launcher.plugin_manager.check_for_updates() 
             self._populate_plugins()
 
     def _show_market_loading(self):
@@ -960,10 +961,14 @@ class LauncherUI(QWidget):
         self.plugins_list_layout.addWidget(error_container, 0, 0, 1, 3)
 
     def _load_market_data(self):
-        if self.launcher.fetch_remote_plugins():
-            QtCore.QMetaObject.invokeMethod(self, "_populate_plugins", Qt.ConnectionType.QueuedConnection)
-        else:
-            QtCore.QMetaObject.invokeMethod(self, "_show_market_error", Qt.ConnectionType.QueuedConnection)
+        try:
+            if self.launcher.fetch_remote_plugins():
+                self.launcher.plugin_manager.check_for_updates()
+                QtCore.QMetaObject.invokeMethod(self, "_populate_plugins", Qt.ConnectionType.QueuedConnection)
+            else:
+                QtCore.QMetaObject.invokeMethod(self, "_show_market_error", Qt.ConnectionType.QueuedConnection)
+        except Exception as e:
+            print(e)
 
     @pyqtSlot()
     def _populate_plugins(self):
@@ -1068,11 +1073,21 @@ class LauncherUI(QWidget):
                 toggle.setStyleSheet("background: #555; color: #888; border-radius: 5px;")
             else:
                 toggle.clicked.connect(lambda _, p=plugin, b=toggle: self._install_plugin(p, b))
+            header.addWidget(toggle)
         else:
-            toggle = SwitchButton()
-            toggle.setChecked(is_enabled)
-            toggle.stateChanged.connect(lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))  
-        header.addWidget(toggle)
+            update_available = plugin.get('update_available', False)
+            if update_available:
+                update_btn = QPushButton(t(self.lang, "btn_update").format(v=plugin['latest_version']))
+                update_btn.setFixedHeight(30)
+                update_btn.setStyleSheet("background: #0288d1; color: white; border-radius: 5px; font-weight: bold;")
+                update_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                update_btn.clicked.connect(lambda _, p=plugin, b=update_btn: self._update_plugin(p, b))
+                header.addWidget(update_btn)
+            else:
+                toggle = SwitchButton()
+                toggle.setChecked(is_enabled)
+                toggle.stateChanged.connect(lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))
+                header.addWidget(toggle)
         lay.addLayout(header)
         
         desc_lbl = QLabel(plugin['description'])
@@ -1230,6 +1245,40 @@ class LauncherUI(QWidget):
     @pyqtSlot()
     def _on_install_success(self):  
         self._switch_plugin_view(False)
+
+    def _update_plugin(self, plugin_data, button):
+        plugin_id = plugin_data.get('id')
+        plugin_name = plugin_data.get('name')
+        latest_version = plugin_data.get('latest_version')
+
+        reply = QtWidgets.QMessageBox.question(
+            self,
+            t(self.lang, "plugin_update_confirm_title"),
+            t(self.lang, "plugin_update_confirm_text").format(name=plugin_name, version=latest_version),
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.Yes
+        )
+        if reply != QtWidgets.QMessageBox.StandardButton.Yes:
+            return
+
+        button.setEnabled(False)
+        button.setText(t(self.lang, "btn_installing"))
+
+        def run_update():
+            success = self.launcher.plugin_manager.update_plugin(plugin_id)
+            QtCore.QMetaObject.invokeMethod(self, "_on_update_finished", Qt.ConnectionType.QueuedConnection,
+                                            QtCore.Q_ARG(bool, success))
+
+        threading.Thread(target=run_update, daemon=True).start()
+
+    @pyqtSlot(bool)
+    def _on_update_finished(self, success):
+        if success:
+            QtWidgets.QMessageBox.information(self, t(self.lang, "plugin_update_success_title"), t(self.lang, "plugin_update_success_text"))
+        else:
+            QtWidgets.QMessageBox.warning(self, t(self.lang, "plugin_update_error_title"), t(self.lang, "plugin_update_error_text"))
+        self.launcher.plugin_manager.load_plugins()
+        self._populate_plugins()
 
     def _update_nick_scroll(self):
         status_width = self.status.geometry().width()

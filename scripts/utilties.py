@@ -1,5 +1,8 @@
 import random
 import re
+import struct
+import gzip
+import io
 import sys
 from math import cos, sin, pi
 
@@ -622,3 +625,78 @@ class GlassFrame(QFrame):
             painter.fillPath(highlight_path, highlight_gradient)
             painter.setPen(QColor(255, 255, 255, 140))
             painter.drawPath(path)
+
+
+class _NBTWriter:
+    TAG_END = 0
+    TAG_BYTE = 1
+    TAG_STRING = 8
+    TAG_LIST = 9
+    TAG_COMPOUND = 10
+
+    def __init__(self, stream):
+        self.stream = stream
+
+    def _write_string(self, value):
+        encoded = value.encode('utf-8')
+        self.stream.write(struct.pack('>H', len(encoded)))
+        self.stream.write(encoded)
+
+    def _write_payload(self, tag_type, value):
+        if tag_type == self.TAG_BYTE:
+            self.stream.write(struct.pack('b', value))
+        elif tag_type == self.TAG_STRING:
+            self._write_string(value)
+        elif tag_type == self.TAG_COMPOUND:
+            self._write_compound_payload(value)
+        elif tag_type == self.TAG_LIST:
+            list_tag_type = value['type']
+            list_data = value['value']
+            self.stream.write(struct.pack('b', list_tag_type))
+            self.stream.write(struct.pack('>i', len(list_data)))
+            for item in list_data:
+                self._write_payload(list_tag_type, item)
+
+    def _write_named_tag(self, tag_type, name, value):
+        self.stream.write(struct.pack('b', tag_type))
+        self._write_string(name)
+        self._write_payload(tag_type, value)
+
+    def _write_compound_payload(self, compound_dict):
+        for name, (tag_type, value) in compound_dict.items():
+            self._write_named_tag(tag_type, name, value)
+        self.stream.write(struct.pack('b', self.TAG_END))
+
+    def write_root(self, root_name, root_compound):
+        self._write_named_tag(self.TAG_COMPOUND, root_name, root_compound)
+
+
+def create_servers_dat(servers: list, mc_path: str):
+    try:
+        servers_dat_path = os.path.join(mc_path, "servers.dat")
+
+        server_list = []
+        for server in servers:
+            server_compound = {
+                "name": (_NBTWriter.TAG_STRING, server['name']),
+                "ip": (_NBTWriter.TAG_STRING, server['ip']),
+                "acceptTextures": (_NBTWriter.TAG_BYTE, 1)
+            }
+            server_list.append(server_compound)
+
+        root_compound = {
+            "servers": (_NBTWriter.TAG_LIST, {
+                "type": _NBTWriter.TAG_COMPOUND,
+                "value": server_list
+            })
+        }
+
+        stream = io.BytesIO()
+        writer = _NBTWriter(stream)
+        writer.write_root("", root_compound)
+
+        with gzip.open(servers_dat_path, 'wb') as f:
+            f.write(stream.getvalue())
+
+    except Exception as e:
+        print(f"[servers.dat] Error creating servers.dat: {e}")
