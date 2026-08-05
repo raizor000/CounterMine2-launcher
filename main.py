@@ -424,8 +424,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ui.rpc_switch.setOnColor(new_switch_style)
         self.ui.snow_switch.setOnColor(new_switch_style)
         self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
-        self.ui.lang_dropdown.setTextColor(new_dropdown_style)
-
 
     def save_settings(self):
         settings = {
@@ -496,9 +494,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                 if is_winter_period():
                     self.ui.snow_switch.setChecked(self.show_snow)
 
-                for plugin in self.plugin_manager.plugins:
-                    plugin.on_language_change(lang=self.lang)
-
                 self.discord_rpc = rpc
                 self.ui.lang_dropdown.current = "Русский" if self.lang == "ru_ru" else "English"
 
@@ -512,7 +507,6 @@ class LauncherApp(QtWidgets.QMainWindow):
     def start_fetching(self):
         self.fetcher.fetch_news_async()
         self.fetcher.fetch_online_async()
-        self.fetcher.fetch_queue_async()
 
     def connect_signals(self):
         self.ui.play_clicked.connect(self.on_play_clicked)
