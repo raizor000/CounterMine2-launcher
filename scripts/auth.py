@@ -14,10 +14,10 @@ import urllib
 
 from .utilties import get_resource_path
 
-TOKEN_URL = "https://auth.cherry.pizza/realms/cherrypizza/protocol/openid-connect/token"
+TOKEN_URL = "https://auth.cherct/token"
 CLIENT_ID = "frontend"
-REDIRECT_URI = "http://localhost:8080"
-GRAPHQL_URL = "https://cherry.pizza/api/graphql"
+REDIRECT_URI = "http://localh"
+GRAPHQL_URL = "https://cherry.hql"
 
 class AuthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -183,7 +183,7 @@ class CherryAuth(QObject):
             server.html_path = self.html_path
             
             encoded_redirect = urllib.parse.quote(REDIRECT_URI)
-            auth_url = f"https://auth.cherry.pizza/realms/cherrypizza/protocol/openid-connect/auth?client_id={CLIENT_ID}&redirect_uri={encoded_redirect}&response_type=code&scope=openid"
+            auth_url = f"https://auth.cherry.pizza/realms/cher_id={CLIENT_ID}&redirect_uri={encoded_redirect}&response_type=code&scope=openid"
             webbrowser.open(auth_url)
             
             server.serve_forever()

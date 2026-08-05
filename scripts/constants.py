@@ -30,7 +30,7 @@ news_url = "https://cm2news.xyz/news/news.json"
 external_ip_url = "https://api.ipify.org?format=json"
 LAUNCHER_VERSION = "5.0 | Last  official update | "
 
-QUEUE_URL = "http://185.246.223.118:25593/ranked/api"
+QUEUE_URL = "http://:25593/ranked/api"
 tabs_style = """
     QPushButton { background-color: #555; color: white; border-radius: 5px; border: none; }
     QPushButton:hover { background-color: #666; }
@@ -112,4 +112,4 @@ new_switch_style = "#fbac18"
 
 old_dropdown_style = "#FF5722"
 new_dropdown_style = "#fbac18"
-LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1524805275398307943/5qAceDbtwy-NASZALgiuluRAyIDLNv0EDjmexDYBm0lTrWgP_1kdnfKzU_OqnRrDDYgl"
+LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/15lTrWgP_1kdnfKzU_OqnRrDDYgl"
