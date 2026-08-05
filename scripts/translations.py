@@ -93,7 +93,19 @@ translations = {
         "console_copy": "Копировать всё",
         "console_export": "Экспорт лога",
         "scroll_hint": "Прокрутите, чтобы увидеть подробности",
-        "online_label_unknown": "Ошибка :("
+        "online_label_unknown": "Ошибка :(",
+        "curseforge_plugin_name": "CurseForge Integration (Зеркало)",
+        "curseforge_plugin_description": "Поиск и установка модов с ЗЕРКАЛА CurseForge\nНЕ может работать одновременно с Modrinth",
+        "curseforge_readonly_placeholder": "ОТОБРАЖЕНИЕ СТАТУСА МОДА ДОСТУПНО ТОЛЬКО ВО ВКЛАДКЕ УСТАНОВЛЕННЫХ МОДОВ",
+        "curseforge_error_message": "Ошибка CurseForge API",
+        "curseforge_retry_button": "Повторить",
+        "btn_update": "Обновить до v{v}",
+        "plugin_update_success_title": "Плагин обновлен",
+        "plugin_update_success_text": "Плагин успешно обновлен. Пожалуйста, перезапустите лаунчер, чтобы применить изменения.",
+        "plugin_update_error_title": "Ошибка обновления",
+        "plugin_update_error_text": "Не удалось обновить плагин. Возможно, он был удален. Проверьте логи.",
+        "plugin_update_confirm_title": "Подтверждение обновления",
+        "plugin_update_confirm_text": "Вы уверены, что хотите обновить '{name}' до версии {version}?"
     },
     "en_us": {
         "tabs_home": "Home",
@@ -187,6 +199,18 @@ translations = {
         "console_copy": "Copy All",
         "console_export": "Export Log",
         "scroll_hint": "Scroll to see more details",
-        "online_label_unknown": "Error :("
+        "online_label_unknown": "Error :(",
+        "curseforge_plugin_name": "CurseForge Integration (Mirror)",
+        "curseforge_plugin_description": "Search and install mods from a CurseForge MIRROR\nCANNOT work simultaneously with Modrinth",
+        "curseforge_readonly_placeholder": "MOD STATUS IS ONLY DISPLAYED IN THE INSTALLED MODS TAB",
+        "curseforge_error_message": "CurseForge API Error",
+        "curseforge_retry_button": "Retry",
+        "btn_update": "Update to v{v}",
+        "plugin_update_success_title": "Plugin Updated",
+        "plugin_update_success_text": "Plugin updated successfully. Please restart the launcher to apply changes.",
+        "plugin_update_error_title": "Update Failed",
+        "plugin_update_error_text": "Failed to update the plugin. It may have been uninstalled. Please check the logs.",
+        "plugin_update_confirm_title": "Confirm Update",
+        "plugin_update_confirm_text": "Are you sure you want to update '{name}' to version {version}?"
     },
 }
