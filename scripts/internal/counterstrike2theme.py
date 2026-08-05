@@ -689,10 +689,6 @@ class UI_Modifier(BasePlugin):
             print(f"[{self.name}] Плагин не поддерживается на этой платформе.")
 
     def on_language_change(self, lang):
-        if lang == "ru_ru":
-            ...
-        elif lang == "en_us":
-            ...
         self.update_ui_texts(lang)
 
     def update_ui_texts(self, lang):
