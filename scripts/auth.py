@@ -13,11 +13,8 @@ from pathlib import Path
 import urllib
 
 from .utilties import get_resource_path
+from .constants import *
 
-TOKEN_URL = "https://auth.cherct/token"
-CLIENT_ID = "frontend"
-REDIRECT_URI = "http://localh"
-GRAPHQL_URL = "https://cherry.hql"
 
 class AuthHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -63,7 +60,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     base_assets / "icons" / f"icon_{season}.png",
                     base_assets / "icons" / "icon.png",
                     get_resource_path(self.path.lstrip("/"))
-              ]
+                ]
 
                 found = None
                 for c in candidates:
@@ -96,7 +93,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(f"Error loading icon: {e}".encode())
                 return
-        
+
         qs = parse_qs(urlparse(self.path).query)
         code = qs.get("code")
 
@@ -119,7 +116,7 @@ class AuthHandler(BaseHTTPRequestHandler):
             if r.status_code == 200:
                 tokens = r.json()
                 self.server.auth_manager.on_auth_success(tokens)
-                
+
                 try:
                     with open(self.server.html_path, "rb") as f:
                         content = f.read()
@@ -141,11 +138,11 @@ class AuthHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(f"Error: {e}".encode())
             self.server.auth_manager.on_auth_failed(str(e))
-        
-     
+
+
 class CherryAuth(QObject):
-    auth_finished = pyqtSignal(dict) 
-    auth_failed = pyqtSignal(str)    
+    auth_finished = pyqtSignal(dict)
+    auth_failed = pyqtSignal(str)
     logged_out = pyqtSignal()
 
     def __init__(self, config_path, html_path):
@@ -155,7 +152,7 @@ class CherryAuth(QObject):
         self.tokens = {}
         self.user_data = {}
         self.refresh_timer = None
-        
+
     def load_token(self):
         try:
             if self.config_path.exists():
@@ -181,16 +178,16 @@ class CherryAuth(QObject):
             server = HTTPServer(("127.0.0.1", 8080), AuthHandler)
             server.auth_manager = self
             server.html_path = self.html_path
-            
+
             encoded_redirect = urllib.parse.quote(REDIRECT_URI)
-            auth_url = f"https://auth.cherry.pizza/realms/cher_id={CLIENT_ID}&redirect_uri={encoded_redirect}&response_type=code&scope=openid"
+            auth_url = f"https://auth.cherry.pizza/realms/cherrypizza/protocol/openid-connect/auth?client_id={CLIENT_ID}&redirect_uri={encoded_redirect}&response_type=code&scope=openid"
             webbrowser.open(auth_url)
-            
+
             server.serve_forever()
         except OSError:
-             self.auth_failed.emit("Port 8080 is explicitly required but busy.")
+            self.auth_failed.emit("Port 8080 is explicitly required but busy.")
         except Exception as e:
-             self.auth_failed.emit(str(e))
+            self.auth_failed.emit(str(e))
 
     def on_auth_success(self, tokens):
         self.tokens = tokens
@@ -286,7 +283,6 @@ class CherryAuth(QObject):
             if r.status_code == 200:
                 data = r.json()
 
-
                 if "data" in data and data["data"] and data["data"].get("accountByNickname"):
                     self.user_data = data["data"]["accountByNickname"]
                     self.auth_finished.emit(self.user_data)
@@ -326,23 +322,23 @@ class CherryAuth(QObject):
     def _schedule_refresh(self):
         if self.refresh_timer:
             self.refresh_timer.cancel()
-        
+
         expires_in = self.tokens.get("expires_in", 300)
         interval = max(10, expires_in - 30)
-        
+
         self.refresh_timer = threading.Timer(interval, self.refresh_token)
         self.refresh_timer.daemon = True
         self.refresh_timer.start()
 
     def check_auth_status(self):
         if self.load_token():
-            if self.refresh_token(): 
+            if self.refresh_token():
                 self.fetch_user_profile()
             else:
-                 self.logged_out.emit()
+                self.logged_out.emit()
         else:
             self.logged_out.emit()
-    
+
     def logout(self):
         self.tokens = {}
         self.user_data = {}
