@@ -1,3 +1,5 @@
+import threading
+import requests
 from PyQt6.QtCore import Qt, QPoint, QPropertyAnimation, QEasingCurve, QTimer, QSize
 from PyQt6.QtGui import QCursor, QColor, QPixmap, QPalette, QGuiApplication, QPainter, QBrush, QPainterPath, QFont
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QGraphicsDropShadowEffect, QApplication
@@ -5,6 +7,104 @@ from scripts.plugin_manager import BasePlugin
 from scripts.utilties import t
 import PyQt6.QtCore as QtCore
 from PyQt6 import QtGui, QtWidgets
+
+translations = {
+    "ru_ru": {
+        "ranked_plugin_name": "Ranked Queue",
+        "ranked_plugin_description": "Интеграция очереди Ranked",
+        "ranked_queue_title": "Очередь Ranked",
+        "ranked_queue_remaining_1": "Остался 1 игрок для начала",
+        "ranked_queue_remaining_2_4": "Осталось {count} игрока для начала",
+        "ranked_queue_remaining_5_plus": "Осталось {count} игроков для начала",
+        "ranked_sound_notification": "Звук уведомления Ranked",
+        "ranked_match_starting": "МАТЧ НАЧИНАЕТСЯ",
+    },
+    "en_us": {
+        "ranked_plugin_name": "Ranked Queue",
+        "ranked_plugin_description": "Ranked Queue Integration",
+        "ranked_queue_title": "Ranked Queue",
+        "ranked_queue_remaining_1": "1 player remaining to start",
+        "ranked_queue_remaining_2_4": "{count} players remaining to start",
+        "ranked_queue_remaining_5_plus": "{count} players remaining to start",
+        "ranked_sound_notification": "Ranked Notification Sound",
+        "ranked_match_starting": "MATCH IS STARTING",
+    }
+}
+
+def t(lang, key):
+    return translations.get(lang, {}).get(key, key)
+
+QUEUE_URL = "http://185.246.223.118:25593/ranked/api"
+
+class QueueFetcher(QtCore.QObject):
+    queueFetched = QtCore.pyqtSignal(list)
+
+    def __init__(self):
+        super().__init__()
+        self.lang = "en_us"
+        self.in_game = False
+        self._stop_event = threading.Event()
+        self._session = None
+        self._threads = []
+
+    def fetch_queue_async(self):
+        thread = threading.Thread(target=self._run_queue, daemon=True)
+        thread.start()
+        self._threads.append(thread)
+
+    def _safe_request(self, method, url, **kwargs):
+        if not self._session:
+            self._session = requests.Session()
+            self._session.headers.update({'Connection': 'close'})
+        try:
+            resp = self._session.request(method, url, **kwargs)
+            return resp
+        except Exception as e:
+            print(f"[Fetcher] Request to {url} failed: {e}. Resetting session connection pool.")
+            if self._session:
+                try:
+                    self._session.close()
+                except:
+                    pass
+                self._session = None
+            raise e
+            
+    def _run_queue(self):
+        while not self._stop_event.is_set():
+            if not self.in_game:
+                try:
+                    resp = self._safe_request(
+                        "POST",
+                        QUEUE_URL,
+                        json={"action": "queue5vs5"},
+                        headers={'User-Agent': 'CounterMine2-Launcher/5.0'},
+                        timeout=5
+                    )
+
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        players = data.get("ru", [])
+                        names = []
+                        for p in players:
+                            nick = p.get("minecraft_nick")
+                            rating = p.get("rating", "—")
+                            if nick:
+                                names.append((str(nick).strip(), str(rating).strip()))
+                    else:
+                        names = []
+
+                except Exception as e:
+                    names = ["error"*10]
+                    print(f"[Fetcher] Queue Error: {e}")
+
+                names.sort(key=lambda x: x[0] if isinstance(x[0], (str)) else 0, reverse=False)
+                self.queueFetched.emit(names)
+
+                if self._stop_event.wait(3):
+                    break
+            else:
+                if self._stop_event.wait(1):
+                    break
 
 class RankedToggleButton(QPushButton):
     def __init__(self, text, parent=None):
@@ -87,6 +187,8 @@ class RankedPlugin(BasePlugin):
     icon = "assets/pixmaps/ranked.png"
 
     def on_load(self):
+        self.name = t(self.app.lang, "ranked_plugin_name")
+        self.description = t(self.app.lang, "ranked_plugin_description")
         self.occupied_last = None
         self.faceit_expanded = True
         self.prac_expanded = False
@@ -115,12 +217,12 @@ class RankedPlugin(BasePlugin):
 
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
-        self.faceit_title_label = QLabel("Очередь Ranked")
+        self.faceit_title_label = QLabel(t(self.app.lang, "ranked_queue_title"))
         self.faceit_title_label.setStyleSheet("font-weight: bold; font-size: 13pt; color: #f0f0f0; border: 0px;")
         header_layout.addWidget(self.faceit_title_label)
         header_layout.addStretch()
 
-        self.toggle_faceit_btn = RankedToggleButton("−", self.waitlist)
+        self.toggle_faceit_btn = RankedToggleButton("−", self.waitlist) # Symbol, no translation needed
         self.toggle_faceit_btn.setFixedSize(28, 28)
         self.toggle_faceit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         header_layout.addWidget(self.toggle_faceit_btn)
@@ -130,7 +232,7 @@ class RankedPlugin(BasePlugin):
         self.faceit_content.setStyleSheet("background: transparent; border: 0px;")
         faceit_content_layout = QVBoxLayout(self.faceit_content)
         
-        self.queue_label = QLabel(self.get_queue_string(0, 10))
+        self.queue_label = QLabel(self.get_queue_string(0, 10)) # This is dynamic, will be updated by update_ui_elements
         self.queue_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.queue_label.setStyleSheet("font-size: 13pt; letter-spacing: -1px;")
         faceit_content_layout.addWidget(self.queue_label)
@@ -140,7 +242,7 @@ class RankedPlugin(BasePlugin):
         self.names_label.setTextFormat(Qt.TextFormat.RichText)
         faceit_content_layout.addWidget(self.names_label)
 
-        self.counter_label = QLabel("Осталось - игроков для начала")  
+        self.counter_label = QLabel() # This is dynamic, will be updated by update_ui_elements
         self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;")
         faceit_content_layout.addWidget(self.counter_label)
@@ -158,10 +260,24 @@ class RankedPlugin(BasePlugin):
         self.waitlist.setGraphicsEffect(shadow)
 
         self.toggle_faceit_btn.clicked.connect(self.toggle_faceit_queue)
-        self.app.fetcher.queueFetched.connect(self.on_queue_update)
-        
+        self.fetcher = QueueFetcher()
+        self.fetcher.queueFetched.connect(self.on_queue_update)
+        self.fetcher.fetch_queue_async()
 
         self.add_sound_setting()
+        self.update_ui_texts(self.app.lang) 
+
+    def on_language_change(self, lang):
+        self.name = t(lang, "ranked_plugin_name")
+        self.description = t(lang, "ranked_plugin_description")
+        self.update_ui_texts(lang)
+
+    def update_ui_texts(self, lang):
+        if hasattr(self, 'faceit_title_label'):
+            self.faceit_title_label.setText(t(lang, "ranked_queue_title"))
+        if hasattr(self, 'sound_label'):
+            self.sound_label.setText(t(lang, "ranked_sound_notification"))
+        self.fetcher.fetch_queue_async() # Re-fetch to update dynamic labels
 
     def add_sound_setting(self):
         ui = self.app.ui
@@ -170,13 +286,13 @@ class RankedPlugin(BasePlugin):
 
         from scripts.utilties import SwitchButton
         sound_layout = QHBoxLayout()
-        sound_label = QLabel("Звук уведомления Ranked")
-        sound_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
+        self.sound_label = QLabel(t(self.app.lang, "ranked_sound_notification"))
+        self.sound_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         sound_switch = SwitchButton()
         sound_switch.setOnColor("#fbac18")
         sound_switch.setChecked(self.app.sound_enabled)
         sound_switch.stateChanged.connect(lambda checked: self.app.on_settings_changed("sound_enabled", checked))
-        sound_layout.addWidget(sound_label)
+        sound_layout.addWidget(self.sound_label)
         sound_layout.addStretch()
         sound_layout.addWidget(sound_switch)
         ui.plugin_settings_layout.addLayout(sound_layout)
@@ -264,6 +380,12 @@ class RankedPlugin(BasePlugin):
         occupied = len(names)
         current_user_nickname = self.app.nickname
 
+        if names and names[0][0] == "error"*10:
+            occupied = 0
+            names = []
+            self.counter_label.hide()
+            self.queue_label.hide()
+            
         if occupied == 0 and len(self.last_queue_names) == 9 and current_user_nickname:
             was_in_queue = any(
                 name.lower() == current_user_nickname.lower() for name, rating in self.last_queue_names
@@ -278,8 +400,14 @@ class RankedPlugin(BasePlugin):
         self.queue_label.setText(self.get_queue_string(occupied, 10))
         
         remaining = 10 - occupied
-        word = "игроков" if 5 <= remaining or remaining == 0 else "игрока" if 2 <= remaining <= 4 else "игрок"
-        self.counter_label.setText(f"Осталось {remaining} {word} для начала")
+        if remaining == 1:
+            text = t(self.app.lang, "ranked_queue_remaining_1")
+        elif 2 <= remaining <= 4:
+            text = t(self.app.lang, "ranked_queue_remaining_2_4").format(count=remaining)
+        else:
+            text = t(self.app.lang, "ranked_queue_remaining_5_plus").format(count=remaining)
+
+        self.counter_label.setText(text)
 
         safe = [(name, elo) for name, elo in names if isinstance(name, str) and name.strip()]
         html = '<table style="width:100%;">'  
@@ -316,7 +444,7 @@ class RankedPlugin(BasePlugin):
         self.notif.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.notif.setFixedSize(330, 80)
 
-        label = QLabel("МАТЧ НАЧИНАЕТСЯ", self.notif)
+        label = QLabel(t(self.app.lang, "ranked_match_starting"), self.notif)
         label.setGeometry(0, 0, 300, 80)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setStyleSheet("background-color: rgba(40, 40, 40, 220); border-radius: 10px; font-size: 24px; font-weight: bold; color: white;")
