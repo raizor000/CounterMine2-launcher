@@ -23,6 +23,23 @@ from panda3d.core import GraphicsOutput, Texture
 from scripts.utilties import DropDown
 
 
+translations = {
+    "ru_ru": {
+        "cs2_theme_night_time": "Ночное время",
+        "cs2_theme_map_selection": "Выбор карты",
+        "cs2_theme_map_by": "от ",
+        "cs2_theme_map_unknown_author": "Неизвестный автор"
+    },
+    "en_us": {
+        "cs2_theme_night_time": "Night Time",
+        "cs2_theme_map_selection": "Map Selection",
+        "cs2_theme_map_by": "by ",
+        "cs2_theme_map_unknown_author": "Unknown Author"
+    }
+}
+
+def t(lang, key):
+    return translations.get(lang, {}).get(key, key)
 
 QWebEngineView = None
 
@@ -271,7 +288,7 @@ class BillboardLabel:
         return self.np
 
 
-class ParallaxPandaWidget(BasePandaWidget):
+class BackgroundWidget(BasePandaWidget):
     def __init__(self, launcher, icon_path, config=None, parent=None):
         self.cfg = config or ParallaxConfig()
 
@@ -306,16 +323,16 @@ class ParallaxPandaWidget(BasePandaWidget):
         self._load_model_internal(self.cfg.model_path)
         print(f"[{self.__class__.__name__}] Model loaded: {self.cfg.model_path}")
 
-        print(f"[ParallaxPandaWidget] Loaded model: {self.cfg.model_path}")
-        print(f"[ParallaxPandaWidget] Model scale: {self.cfg.model_scale}, position: {self.cfg.model_pos}")
-        print(f"[ParallaxPandaWidget] Camera position: {self.cfg.camera_pos}, base HPR: ({self.cfg.base_h}, {self.cfg.base_p}, {self.cfg.base_r})")
-        print(f"[ParallaxPandaWidget] Max angle: {self.cfg.max_angle}, smoothness: {self.cfg.smoothness}")
-        print(f"[ParallaxPandaWidget] Ambient color: {self.cfg.ambient_color}, Sun color: {self.cfg.sun_color}, Sun HPR: {self.cfg.sun_hpr}")
-        print(f"[ParallaxPandaWidget] Parallax enabled: {self.parallax_enabled}")
-        print(f"[ParallaxPandaWidget] Nick label: {self.nick_label}, Sun: {self.sun}, Ambient: {self.amb}, Model: {self.model}")
-        print(f"[ParallaxPandaWidget] Model analysis: {self.model.analyze() if self.model else 'No model loaded'}")
-        print(f"[ParallaxPandaWidget] Model bounds: {self.model.getBounds() if self.model else 'No model loaded'}")
-        print(f"[ParallaxPandaWidget] Model node count: {self.model.getNumChildren() if self.model else 'No model loaded'}")
+        print(f"[BackgroundWidget] Loaded model: {self.cfg.model_path}")
+        print(f"[BackgroundWidget] Model scale: {self.cfg.model_scale}, position: {self.cfg.model_pos}")
+        print(f"[BackgroundWidget] Camera position: {self.cfg.camera_pos}, base HPR: ({self.cfg.base_h}, {self.cfg.base_p}, {self.cfg.base_r})")
+        print(f"[BackgroundWidget] Max angle: {self.cfg.max_angle}, smoothness: {self.cfg.smoothness}")
+        print(f"[BackgroundWidget] Ambient color: {self.cfg.ambient_color}, Sun color: {self.cfg.sun_color}, Sun HPR: {self.cfg.sun_hpr}")
+        print(f"[BackgroundWidget] Parallax enabled: {self.parallax_enabled}")
+        print(f"[BackgroundWidget] Nick label: {self.nick_label}, Sun: {self.sun}, Ambient: {self.amb}, Model: {self.model}")
+        print(f"[BackgroundWidget] Model analysis: {self.model.analyze() if self.model else 'No model loaded'}")
+        print(f"[BackgroundWidget] Model bounds: {self.model.getBounds() if self.model else 'No model loaded'}")
+        print(f"[BackgroundWidget] Model node count: {self.model.getNumChildren() if self.model else 'No model loaded'}")
 
         
         print(f"[{self.__class__.__name__}] Setting up lights.")
@@ -367,7 +384,7 @@ class ParallaxPandaWidget(BasePandaWidget):
         try:
             self.nick_label.setText(text)
         except Exception as e:
-            print(f"[ParallaxPandaWidget] Error setting label text: {e}")
+            print(f"[BackgroundWidget] Error setting label text: {e}")
 
     def set_time(self, time: Literal['day', 'night']):
         if self.sun and self.amb:
@@ -406,7 +423,7 @@ class ParallaxPandaWidget(BasePandaWidget):
         self.cur_p += (target_p - self.cur_p) * self.cfg.smoothness
 
         try:
-            if self.panda.camera and self.panda:
+            if self.panda and self.panda.camera:
                 self.panda.camera.setPos(self.cfg.camera_pos)
                 self.panda.camera.setHpr(self.cur_h, self.cur_p, self.cfg.base_r)
                 if not hasattr(self, "nick_label") or self.nick_label is None:
@@ -415,7 +432,7 @@ class ParallaxPandaWidget(BasePandaWidget):
                     self.nick_label.setPos(-101.6, -130, 63.3)
                     self.nick_label.setScale(1.5)
         except Exception as e:
-            print(f"[{self.__class__.__name__} Error: {e}")
+            print(f"[{self.__class__.__name__}] Error updating parallax: {e}")
 
     def pause_render(self):
         self._render_paused_manually = True
@@ -657,7 +674,7 @@ class UI_Modifier(BasePlugin):
 
             self.map_info_label = QtWidgets.QLabel(ui)
             self.map_info_label.setObjectName("map_info_label")
-            self.map_info_label.setStyleSheet("color: rgba(255, 255, 255, 150); background: transparent; font-size: 9pt;")
+            self.map_info_label.setStyleSheet("color: rgba(255, 255, 255, 180); background: transparent; font-size: 9pt;")
             self.map_info_label.move(10, ui.height() - 30)
             self.map_info_label.show()
             self.update_map_info_label()
@@ -667,13 +684,30 @@ class UI_Modifier(BasePlugin):
             self.apply_custom_styles()
 
             self.setup_news_toggle()
+            self.update_ui_texts(self.app.lang)
         else:
             print(f"[{self.name}] Плагин не поддерживается на этой платформе.")
 
+    def on_language_change(self, lang):
+        if lang == "ru_ru":
+            ...
+        elif lang == "en_us":
+            ...
+        self.update_ui_texts(lang)
+
+    def update_ui_texts(self, lang):
+        if hasattr(self, 'time_label'):
+            self.time_label.setText(t(lang, "cs2_theme_night_time"))
+        if hasattr(self, 'map_label'):
+            self.map_label.setText(t(lang, "cs2_theme_map_selection"))
+        if hasattr(self, 'map_info_label'):
+            self.update_map_info_label()
+
+        
     def update_map_info_label(self):
         map_name = self.selected_map
-        author = MAP_AUTHORS.get(map_name, "Unknown")
-        self.map_info_label.setText(f"{map_name} by {author}")
+        author = MAP_AUTHORS.get(map_name, t(self.app.lang, "cs2_theme_map_unknown_author"))
+        self.map_info_label.setText(f"{map_name} {t(self.app.lang, 'cs2_theme_map_by')}{author}")
         self.map_info_label.adjustSize()
 
     def add_time_setting(self):
@@ -682,17 +716,17 @@ class UI_Modifier(BasePlugin):
             return
 
         from scripts.utilties import SwitchButton
-
+        
         time_layout = QtWidgets.QHBoxLayout()
-        time_label = QtWidgets.QLabel("Ночное время (3D фон)")
-        time_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
+        self.time_label = QtWidgets.QLabel(t(self.app.lang, "cs2_theme_night_time"))
+        self.time_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
 
         self.time_switch = SwitchButton()
         self.time_switch.setOnColor("#fbac18")
         self.time_switch.setChecked(self.is_night)
         self.time_switch.stateChanged.connect(self.on_time_changed)
 
-        time_layout.addWidget(time_label)
+        time_layout.addWidget(self.time_label)
         time_layout.addStretch()
         time_layout.addWidget(self.time_switch)
 
@@ -706,8 +740,8 @@ class UI_Modifier(BasePlugin):
             return
 
         map_layout = QtWidgets.QHBoxLayout()
-        map_label = QtWidgets.QLabel("Выбор карты (3D фон)")
-        map_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
+        self.map_label = QtWidgets.QLabel(t(self.app.lang, "cs2_theme_map_selection"))
+        self.map_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
 
         map_names = list(AVAILABLE_MAPS.keys())
         self.map_dropdown = DropDown(map_names)
@@ -715,7 +749,7 @@ class UI_Modifier(BasePlugin):
         self.map_dropdown.current = self.selected_map
         self.map_dropdown.valueChanged.connect(self.on_map_changed)
 
-        map_layout.addWidget(map_label)
+        map_layout.addWidget(self.map_label)
         map_layout.addStretch()
         map_layout.addWidget(self.map_dropdown)
 
@@ -878,7 +912,7 @@ class UI_Modifier(BasePlugin):
                 smoothness=0.08,
                 sun_color=Vec4(0.5, 0.35, 0.2, 1),
             )
-            ui.bg3d = ParallaxPandaWidget(
+            ui.bg3d = BackgroundWidget(
                 launcher=self.app,
                 config=custom_config,
                 icon_path=self.app.icon_p
@@ -909,9 +943,6 @@ class UI_Modifier(BasePlugin):
         if hasattr(ui, 'tabs_container'):
             ui.tabs_container.move(10, 0)
 
-        ui.lang_label.hide()
-        ui.lang_dropdown.hide()
-
         if hasattr(ui, 'header_frame'):
             ui.header_frame.setFixedHeight(40) 
             ui.header_frame.setStyleSheet("""
@@ -924,7 +955,7 @@ class UI_Modifier(BasePlugin):
                 }
             """)
 
-        if hasattr(ui, 'buttons_block'):
+        if hasattr(ui, 'buttons_block') and hasattr(ui, 'open_game_directory_btn') and hasattr(ui, 'reinstall_btn'):
             ui.buttons_block.setFixedWidth(ui.buttons_block.width() - 6)
             ui.buttons_block.setFixedHeight(ui.height() - ui.header_frame.height())
             ui.buttons_block.move(ui.width() - ui.buttons_block.width(), ui.header_frame.height())
@@ -983,7 +1014,7 @@ class UI_Modifier(BasePlugin):
                 }
         """
         
-        if hasattr(self, 'web_tab_btn'):
+        if hasattr(self, 'web_tab_btn') and hasattr(ui, 'tabs_layout'):
             self.web_tab_btn.setStyleSheet(common_btn_style + "padding: 0 10px;")
             if ui.tabs_layout.indexOf(self.web_tab_btn) == -1:
                 ui.tabs_layout.insertWidget(1, self.web_tab_btn)
