@@ -362,7 +362,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.ui.update_ui(self.lang)
                 self.console_window.update_ui(self.lang)
                 self.fetcher.set_lang(self.lang)
-
+                for plugin in self.plugin_manager.plugins:
+                    plugin.on_language_change(lang=self.lang)
 
             elif key == "snow" and is_winter_period():
                 self.show_snow = bool(value)  
@@ -495,6 +496,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 if is_winter_period():
                     self.ui.snow_switch.setChecked(self.show_snow)
 
+                for plugin in self.plugin_manager.plugins:
+                    plugin.on_language_change(lang=self.lang)
 
                 self.discord_rpc = rpc
                 self.ui.lang_dropdown.current = "Русский" if self.lang == "ru_ru" else "English"
