@@ -11,7 +11,7 @@ LOGS_DIR = MC_DIR / "logs"
 PLUGINS_DIR = LAUNCHER_DIR / "plugins"
 INTERNAL_UPDATES_DIR = LAUNCHER_DIR / "core_updates"
 PLUGINS_ICON_CACHE = LAUNCHER_DIR / "cache" / "plugin_icons"
-MODRINTH_TAB_INDEX = 1 #
+MODRINTH_TAB_INDEX = 1  #
 
 MC_DIR.mkdir(parents=True, exist_ok=True)
 LAUNCHER_DIR.mkdir(parents=True, exist_ok=True)
@@ -26,11 +26,11 @@ PLUGINS_ICON_CACHE.mkdir(parents=True, exist_ok=True)
 VERSION = "1.21.11"
 host = "play.cherry.pizza"
 news_url = "https://cm2news.xyz/news/news.json"
+news_en_url = "https://cm2news.xyz/news/news_en.json"
 
 external_ip_url = "https://api.ipify.org?format=json"
 LAUNCHER_VERSION = "5.0 | Last  official update | "
 
-QUEUE_URL = "http://:25593/ranked/api"
 tabs_style = """
     QPushButton { background-color: #555; color: white; border-radius: 5px; border: none; }
     QPushButton:hover { background-color: #666; }
@@ -41,7 +41,6 @@ tabs_disabled_style = """
     QPushButton:hover { background-color: #666; }
 """
 
-
 tabs_style_new = """
                     QPushButton {
                         background-color: #555;
@@ -49,11 +48,11 @@ tabs_style_new = """
                         border-radius: 5px;
                         border: none;
                     }
-                    
+
                     QPushButton:hover {
                         background-color: #666;
                     }
-                    
+
                     QPushButton:checked {
                         background-color: #fbac18;
                     }
@@ -112,4 +111,10 @@ new_switch_style = "#fbac18"
 
 old_dropdown_style = "#FF5722"
 new_dropdown_style = "#fbac18"
-LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/15lTrWgP_1kdnfKzU_OqnRrDDYgl"
+LOGS_WEBHOOK_URL = "https://discord.com/api/webhooks/1524805275398307943/5qAceDbtwy-NASZALgiuluRAyIDLNv0EDjmexDYBm0lTrWgP_1kdnfKzU_OqnRrDDYgl"
+
+
+TOKEN_URL = "https://auth.cherry.pizza/realms/cherrypizza/protocol/openid-connect/token"
+CLIENT_ID = "frontend"
+REDIRECT_URI = "http://localhost:8080"
+GRAPHQL_URL = "https://cherry.pizza/api/graphql"
