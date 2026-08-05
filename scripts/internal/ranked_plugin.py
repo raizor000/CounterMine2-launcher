@@ -409,7 +409,10 @@ class RankedPlugin(BasePlugin):
 
         self.counter_label.setText(text)
 
-        safe = [(name, elo) for name, elo in names if isinstance(name, str) and name.strip()]
+        try:
+            safe = [(name, elo) for name, elo in names if isinstance(name, str) and name.strip()]
+        except ValueError:
+            safe = []
         html = '<table style="width:100%;">'  
         for i, (name, elo) in enumerate(safe[:occupied]):
             html += f'<tr><td style="text-align:left;">{i+1}. {name}</td><td style="text-align:right;">🏆{elo}</td></tr>'

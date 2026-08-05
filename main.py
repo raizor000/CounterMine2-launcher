@@ -274,7 +274,7 @@ class LauncherApp(QtWidgets.QMainWindow):
     @property
     def is_cs2_theme_active(self) -> bool:
         from scripts.internal.counterstrike2theme import UI_Modifier
-        return any(isinstance(p, UI_Modifier) for p in self.plugin_manager.plugins)
+        return any(isinstance(p, UI_Modifier) for p in self.plugin_manager.plugins) and sys.platform == "win32"
 
 
     def register_url_protocol(self):

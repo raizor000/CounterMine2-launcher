@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os.path
 import sys
 import threading
 import time
@@ -219,7 +220,7 @@ class LauncherUI(QWidget):
 
         self.close_btn = QPushButton("✕", self.header_frame)
         self.close_btn.setGeometry(ww - 40, 5, 30, 30)
-        self.close_btn.setFont(QFont("sans-serif", 11, QFont.Weight.Bold))
+        # self.close_btn.setFont(QFont("sans-serif", 11, QFont.Weight.Bold))
 
         self.close_btn.setStyleSheet("""
                     QPushButton { background-color: transparent; color: red; border: none; }
@@ -232,7 +233,7 @@ class LauncherUI(QWidget):
 
         self.min_btn = QPushButton("—", self.header_frame)
         self.min_btn.setGeometry(ww - 80, 5, 30, 30)
-        self.min_btn.setFont(QFont("sans-serif", 11, QFont.Weight.Bold))
+        # self.min_btn.setFont(QFont("sans-serif", 11, QFont.Weight.Bold))
 
         self.min_btn.setStyleSheet("""
                     QPushButton { background-color: transparent; color: #fbac18; border: none; }
@@ -406,8 +407,9 @@ class LauncherUI(QWidget):
         self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         self.info_label.setStyleSheet("color: #e0e0e0; background: transparent;")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        with open(get_resource_path("scripts/html/about.html" if self.lang == "ru" else "scripts/html/about_en.html"), mode="r", encoding="UTF-8") as f:
-            self.info_label.setText(f.read())
+        if os.path.exists(get_resource_path("scripts/html/about.html") and os.path.exists(get_resource_path("scripts/html/about_en.html"))):
+            with open(get_resource_path("scripts/html/about.html" if self.lang == "ru" else "scripts/html/about_en.html"), mode="r", encoding="UTF-8") as f:
+                self.info_label.setText(f.read())
         
 
         info_scroll = SmoothScrollArea()
@@ -2118,8 +2120,9 @@ class LauncherUI(QWidget):
         self.main_label.setText(t(lang, "about_text"))
         self.tech_info_label.setText(f"version: {self.version} by raizor")
         self.scroll_hint.setText(t(lang, "scroll_hint"))
-        with open(get_resource_path("scripts/html/about.html" if self.lang == "ru_ru" else "scripts/html/about_en.html"), mode="r", encoding="UTF-8") as f:
-            self.info_label.setText(f.read())
+        if os.path.exists(get_resource_path("scripts/html/about.html") and os.path.exists(get_resource_path("scripts/html/about_en.html"))):
+            with open(get_resource_path("scripts/html/about.html" if self.lang == "ru_ru" else "scripts/html/about_en.html"), mode="r", encoding="UTF-8") as f:
+                self.info_label.setText(f.read())
         self.back_btn.setText(t(lang, "back_btn"))
         self.information_title.setText(t(lang, "about_title"))
 

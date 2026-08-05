@@ -9,15 +9,18 @@ from math import cos, sin, pi
 import minecraft_launcher_lib
 import psutil
 import requests
-import win32process
 
 try:
     if sys.platform == "win32":
         import win32gui
+        import win32process
     else:
         win32gui = None
+        win32process = None
 except ImportError:
     win32gui = None
+    win32process = None
+
 from PIL import Image
 import os
 from pathlib import Path
@@ -93,26 +96,29 @@ def is_fabric_installed(mc_path: str, vanilla_version: str) -> bool:
 
 
 def is_mc_running(pid):
-    found = False
+    if sys.platform == "win32":
+        found = False
 
-    def callback(hwnd, _):
-        nonlocal found
+        def callback(hwnd, _):
+            nonlocal found
 
-        if not win32gui.IsWindowVisible(hwnd):
-            return
+            if not win32gui.IsWindowVisible(hwnd):
+                return
 
-        _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
+            _, window_pid = win32process.GetWindowThreadProcessId(hwnd)
 
-        if window_pid != pid:
-            return
+            if window_pid != pid:
+                return
 
-        title = win32gui.GetWindowText(hwnd)
+            title = win32gui.GetWindowText(hwnd)
 
-        if "Minecraft" in title and VERSION in title:
-            found = True
+            if "Minecraft" in title and VERSION in title:
+                found = True
 
-    win32gui.EnumWindows(callback, None)
-    return found
+        win32gui.EnumWindows(callback, None)
+        return found
+    else:
+        return False
 
 
 def t(lang, key):
