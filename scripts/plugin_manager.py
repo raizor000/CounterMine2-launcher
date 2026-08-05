@@ -39,6 +39,9 @@ class BasePlugin(QObject):
     def on_ui_ready(self):
         pass
 
+    def on_language_change(self, lang):
+        pass
+
     def get_plugin_path(self, cls_name):
         """
 
