@@ -391,23 +391,23 @@ class LauncherUI(QWidget):
         card_lay.setContentsMargins(30, 30, 30, 30)
         card_lay.setSpacing(18)
 
-        title = QLabel("Про продукт тут")
-        title.setFixedHeight(42)
-        title.setStyleSheet("color: #ffffff; font-weight: bold; background: transparent;")
-        title.setFont(QFont("sans-serif", 20))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card_lay.addWidget(title)
+        self.information_title = QLabel(t(self.lang, "about_title"))
+        self.information_title.setFixedHeight(42)
+        self.information_title.setStyleSheet("color: #ffffff; font-weight: bold; background: transparent;")
+        self.information_title.setFont(QFont("sans-serif", 20))
+        self.information_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_lay.addWidget(self.information_title)
 
-        info_label = QLabel()
-        info_label.setFont(QFont("sans-serif", 13))
-        info_label.setTextFormat(Qt.TextFormat.RichText)
-        info_label.setWordWrap(True)
-        info_label.setOpenExternalLinks(True)
-        info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        info_label.setStyleSheet("color: #e0e0e0; background: transparent;")
-        info_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        with open(get_resource_path("scripts/html/about.html"), mode="r", encoding="UTF-8") as f:
-            info_label.setText(f.read())
+        self.info_label = QLabel()
+        self.info_label.setFont(QFont("sans-serif", 13))
+        self.info_label.setTextFormat(Qt.TextFormat.RichText)
+        self.info_label.setWordWrap(True)
+        self.info_label.setOpenExternalLinks(True)
+        self.info_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.info_label.setStyleSheet("color: #e0e0e0; background: transparent;")
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        with open(get_resource_path("scripts/html/about.html" if self.lang == "ru" else "scripts/html/about_en.html"), mode="r", encoding="UTF-8") as f:
+            self.info_label.setText(f.read())
         
 
         info_scroll = SmoothScrollArea()
@@ -437,16 +437,16 @@ class LauncherUI(QWidget):
         info_container.setStyleSheet("background: transparent;")
         info_layout = QVBoxLayout(info_container)
         info_layout.setContentsMargins(0, 0, 0, 0)
-        info_layout.addWidget(info_label)
+        info_layout.addWidget(self.info_label)
         info_scroll.setWidget(info_container)
         card_lay.addWidget(info_scroll)
 
-        scroll_hint = QLabel(t(self.lang, "about_scroll_hint"))
-        scroll_hint.setStyleSheet("color: #bbbbbb; font-size: 10px; font-style: italic; background: transparent;")
-        scroll_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card_lay.addWidget(scroll_hint)
+        self.scroll_hint = QLabel(t(self.lang, "about_scroll_hint"))
+        self.scroll_hint.setStyleSheet("color: #bbbbbb; font-size: 10px; font-style: italic; background: transparent;")
+        self.scroll_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        card_lay.addWidget(self.scroll_hint)
 
-        self.back_btn = QPushButton("← Назад в настройки")
+        self.back_btn = QPushButton(t(self.lang, "back_btn"))
         self.back_btn.setFixedHeight(44)
         self.back_btn.setStyleSheet("""
             QPushButton {
@@ -480,7 +480,7 @@ class LauncherUI(QWidget):
         card_lay2.setContentsMargins(30, 30, 30, 30)
         card_lay2.setSpacing(18)
 
-        self.more_settings_title = QLabel("Настройки")
+        self.more_settings_title = QLabel(t(self.lang, "more_settings_title"))
         self.more_settings_title.setFixedHeight(42)
         self.more_settings_title.setStyleSheet("color: #ffffff; font-weight: bold; background: transparent;")
         self.more_settings_title.setFont(QFont("sans-serif", 20))
@@ -488,7 +488,7 @@ class LauncherUI(QWidget):
         card_lay2.addWidget(self.more_settings_title)
 
         snow_layout = QHBoxLayout()  
-        self.snow_label = QLabel("Показать Снежинки ❄")
+        self.snow_label = QLabel(t(self.lang, "snow_label"))
         self.snow_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.snow_switch = SwitchButton()
         self.snow_switch.setFixedSize(52, 28)
@@ -499,7 +499,7 @@ class LauncherUI(QWidget):
 
   
         rpc_layout = QHBoxLayout()
-        self.rpc_label = QLabel("Устанавливать статус в Discord")
+        self.rpc_label = QLabel(t(self.lang, "rpc_label"))
         self.rpc_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.rpc_switch = SwitchButton()
         self.rpc_switch.setFixedSize(52, 28)
@@ -510,7 +510,7 @@ class LauncherUI(QWidget):
   
 
         lang_layout = QHBoxLayout()
-        self.lang_label = QLabel("Язык / Language")
+        self.lang_label = QLabel(t(self.lang, "lang_label"))
         self.lang_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
         self.lang_dropdown = DropDown(["Русский", "English"])
         lang_layout.setContentsMargins(0, 8, 0, 8)
@@ -559,7 +559,7 @@ class LauncherUI(QWidget):
 
         card_lay2.addStretch()
 
-        self.more_settings_back_btn = QPushButton("← Назад в настройки")
+        self.more_settings_back_btn = QPushButton(t(self.lang, "back_btn"))
         self.more_settings_back_btn.setFixedHeight(44)
         self.more_settings_back_btn.setStyleSheet("""
                     QPushButton {
@@ -646,7 +646,7 @@ class LauncherUI(QWidget):
         self.plugins_scroll.setWidget(self.plugins_scroll_content)
         plugins_card_lay.addWidget(self.plugins_scroll)
 
-        self.plugins_back_btn = QPushButton("← Назад в настройки")
+        self.plugins_back_btn = QPushButton(t(self.lang, "back_btn"))
         self.plugins_back_btn.setFixedHeight(44)
         self.plugins_back_btn.setStyleSheet("""
             QPushButton { background-color: #444; color: white; border-radius: 8px; font-size: 13px; }
@@ -708,7 +708,7 @@ class LauncherUI(QWidget):
         self.reinstall_btn.setIconSize(QSize(button_size, button_size))
         self.reinstall_btn.clicked.connect(lambda: self.reinstall_client.emit())
         self.reinstall_btn.setStyleSheet("border:none; background:#323232;")
-        self.reinstall_btn.setToolTip("ПЕРЕУСТАНОВИТЬ КЛИЕНТ")
+        self.reinstall_btn.setToolTip(t(self.lang, "reinstall_tooltip"))
         self.reinstall_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
                                              ))
   
@@ -2068,6 +2068,12 @@ class LauncherUI(QWidget):
         self.open_game_directory_btn.setToolTip(t(lang, "directory_title"))
         self.main_label.setText(t(lang, "about_text"))
         self.tech_info_label.setText(f"version: {self.version} by raizor")
+        self.scroll_hint.setText(t(lang, "scroll_hint"))
+        with open(get_resource_path("scripts/html/about.html" if self.lang == "ru_ru" else "scripts/html/about_en.html"), mode="r", encoding="UTF-8") as f:
+            self.info_label.setText(f.read())
+        self.back_btn.setText(t(lang, "back_btn"))
+        self.information_title.setText(t(lang, "about_title"))
+
 
         try:
             self.settings_title.setText(t(lang, "settings_title"))
@@ -2097,6 +2103,9 @@ class LauncherUI(QWidget):
 
         self.play_btn.setText(t(lang, "play_button"))
 
+        self.launcher.fetcher.fetch_news_now()
+        self.launcher.fetcher.fetch_online_now()
+
     def set_play_status(self, text):
         self.play_btn.setText(text)
 
@@ -2111,9 +2120,10 @@ class LauncherUI(QWidget):
 
     def update_online_and_ping_labels(self, online_count: int, ping_text: str):
         if online_count >= 0:
+            self.online_label.update_language(self.lang)
             self.online_label.animate_to(online_count)
         else:
-            self.online_label.setText("Ошибка :(")
+            self.online_label.setText(t(self.lang, "online_label_unknown"))
 
         self.ping_label.setText(ping_text)
         current_stylesheet = self.ping_frame.styleSheet()
@@ -2122,9 +2132,9 @@ class LauncherUI(QWidget):
         except ValueError:
             self.ping_frame.setStyleSheet(current_stylesheet+"background-color: rgba(50,50,50,190);")
             return
-        if ping_value < 65:
+        if ping_value < 70:
             color = "rgba(69,168,0,190)"
-        elif ping_value < 100:
+        elif ping_value < 110:
             color = "rgba(255,204,0,190)"
         else:
             color = "rgba(211,47,47,190)"
