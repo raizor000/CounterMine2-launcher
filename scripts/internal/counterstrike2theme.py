@@ -43,21 +43,29 @@ loadPrcFileData("", "notify-level-loader debug")
 loadPrcFileData("", "load-file-type p3assimp #f")
 
 
+import sys
+import os
+
+
 def get_base_path():
-    try:
-        return sys._MEIPASS
-    except Exception:
-        return os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False):
+        return os.path.join(sys._MEIPASS, "scripts", "internal")
+    else:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)))
 
 
 get_model_path().prepend_directory(Filename.from_os_specific(get_base_path()))
 
-if hasattr(sys, '_MEIPASS'):
+if getattr(sys, 'frozen', False):
     vfs = VirtualFileSystem.getGlobalPtr()
     vfs.mount(Filename.from_os_specific(sys._MEIPASS), ".", 0)
     vfs.mount(Filename.from_os_specific(sys._MEIPASS), "/", 0)
+
     vfs.mount(Filename.from_os_specific(os.path.join(sys._MEIPASS, "simplepbr")), "/simplepbr", 0)
-    vfs.mount(Filename.from_os_specific(os.path.join(sys._MEIPASS, "shaders")), "/3D/shaders", 0)
+
+    shaders_path = os.path.join(sys._MEIPASS, "scripts", "internal", "3D", "shaders")
+    vfs.mount(Filename.from_os_specific(shaders_path), "/3D/shaders", 0)
+
     pbr_path = os.path.join(sys._MEIPASS, 'simplepbr')
     if os.path.exists(pbr_path):
         get_model_path().append_directory(pbr_path)
@@ -764,7 +772,7 @@ class UI_Modifier(BasePlugin):
         self.web_tab_btn.setCheckable(True)
         self.web_tab_btn.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
         self.web_tab_btn.setObjectName("web_tab_btn")
-        self.web_tab_btn.setIcon(QtGui.QIcon("assets/icons/tv.png"))
+        self.web_tab_btn.setIcon(QtGui.QIcon(self.app.ui.resource_path("assets/icons/tv.png")))
         self.web_tab_btn.setIconSize(QtCore.QSize(24, 24))
         self.web_tab_btn.clicked.connect(self.on_web_tab_clicked)
 
@@ -993,7 +1001,7 @@ class UI_Modifier(BasePlugin):
             ui.tab_news_btn.setFlat(True)
             ui.tab_news_btn.setFixedSize(30, 30)
             ui.tab_news_btn.setText("")
-            ui.tab_news_btn.setIcon(QtGui.QIcon("assets/icons/home.png"))
+            ui.tab_news_btn.setIcon(QtGui.QIcon(self.app.ui.resource_path("assets/icons/home.png")))
             ui.tab_news_btn.setIconSize(QtCore.QSize(24, 24))
             if ui.tabs_layout.indexOf(ui.tab_news_btn) != -1:
                 ui.tabs_layout.removeWidget(ui.tab_news_btn)
@@ -1004,7 +1012,7 @@ class UI_Modifier(BasePlugin):
             ui.tab_settings_btn.setFlat(True)
             ui.tab_settings_btn.setFixedSize(30, 30)
             ui.tab_settings_btn.setText("")
-            ui.tab_settings_btn.setIcon(QtGui.QIcon("assets/icons/settings.png"))
+            ui.tab_settings_btn.setIcon(QtGui.QIcon(self.app.ui.resource_path("assets/icons/settings.png")))
             ui.tab_settings_btn.setIconSize(QtCore.QSize(24, 24))
             if ui.tabs_layout.indexOf(ui.tab_settings_btn) != -1:
                 ui.tabs_layout.removeWidget(ui.tab_settings_btn)
@@ -1012,7 +1020,7 @@ class UI_Modifier(BasePlugin):
 
         if hasattr(ui, 'close_btn') and hasattr(ui, 'tabs_layout'):
             ui.close_btn.setText("")
-            ui.close_btn.setIcon(QtGui.QIcon("assets/icons/exit.png"))
+            ui.close_btn.setIcon(QtGui.QIcon(self.app.ui.resource_path("assets/icons/exit.png")))
             ui.close_btn.setIconSize(QtCore.QSize(24, 24))
             ui.close_btn.setFixedSize(30, 30)
             ui.close_btn.setFlat(True)
