@@ -11,7 +11,29 @@ from PyQt6.QtGui import QCursor, QPixmap, QMovie
 
 from scripts.plugin_manager import BasePlugin
 from scripts.constants import MC_DIR, VERSION, tabs_style_new, tabs_style, MODRINTH_TAB_INDEX, MODS_CACHE
-from scripts.utilties import t, is_mod_installed, SmoothScrollArea
+from scripts.utilties import is_mod_installed, SmoothScrollArea
+
+translations = {
+    "ru_ru": {
+        "curseforge_plugin_name": "CurseForge Integration (Зеркало)",
+        "curseforge_plugin_description": "Поиск и установка модов с ЗЕРКАЛА CurseForge\nНЕ может работать одновременно с Modrinth",
+        "curseforge_readonly_placeholder": "ОТОБРАЖЕНИЕ СТАТУСА МОДА ДОСТУПНО ТОЛЬКО ВО ВКЛАДКЕ УСТАНОВЛЕННЫХ МОДОВ",
+        "curseforge_error_message": "Ошибка CurseForge API",
+        "curseforge_retry_button": "Повторить"
+    },
+    "en_us": {
+        "curseforge_plugin_name": "CurseForge Integration (Mirror)",
+        "curseforge_plugin_description": "Search and install mods from the CurseForge MIRROR\nCANNOT work simultaneously with Modrinth",
+        "curseforge_readonly_placeholder": "MOD STATUS DISPLAY IS ONLY AVAILABLE IN THE INSTALLED MODS TAB",
+        "curseforge_error_message": "CurseForge API Error",
+        "curseforge_retry_button": "Retry"
+    }
+}
+
+def t(lang, key):
+    if key not in translations[lang]:
+        return "???"
+    return translations[lang].get(key, key)
 
 class CurseSearchWorker(QObject):
     finished = pyqtSignal(list, bool, bool)
@@ -93,6 +115,8 @@ class CurseForgePlugin(BasePlugin):
     refresh_signal = pyqtSignal()
 
     def on_load(self):
+        self.name = t(self.app.lang, "curseforge_plugin_name")
+        self.description = t(self.app.lang, "curseforge_plugin_description")
         self.mods_data = []
         self.worker = None
         self.thread = None
@@ -106,9 +130,26 @@ class CurseForgePlugin(BasePlugin):
         
         self.refresh_signal.connect(lambda: self.refresh_grid(None))
 
+    def on_language_change(self, lang):
+        self.name = t(lang, "curseforge_plugin_name")
+        self.description = t(lang, "curseforge_plugin_description")
+        self.update_ui_texts(lang)
+
+    def update_ui_texts(self, lang):
+        if hasattr(self, 'tab_btn'):
+            self.tab_btn.setText(t(lang, "tabs_mods"))
+        if hasattr(self, 'search'):
+            self.search.setPlaceholderText(t(lang, "curseforge_readonly_placeholder"))
+        if hasattr(self, 'search_edit'):
+            self.search_edit.setPlaceholderText(t(lang, "curse_search"))
+        if hasattr(self, 'error_msg'):
+            self.error_msg.setText(t(lang, "curseforge_error_message"))
+        if hasattr(self, 'retry_btn'):
+            self.retry_btn.setText(t(lang, "curseforge_retry_button"))
+
     def on_ui_ready(self):
         ui = self.app.ui
-        self.tab_btn = QPushButton("Модпаки")
+        self.tab_btn = QPushButton()
         self.tab_btn.setFixedSize(100, 30)
         self.tab_btn.setStyleSheet(tabs_style_new)
         self.tab_btn.setCheckable(True)
@@ -128,7 +169,6 @@ class CurseForgePlugin(BasePlugin):
         layout = QVBoxLayout(self.container)
 
         self.search = QLineEdit()
-        self.search.setPlaceholderText("ОТОБРАЖЕНИЕ СТАТУСА МОДА ДОСТУПНО ТОЛЬКО ВО ВКЛАДКЕ УСТАНОВЛЕННЫХ МОДОВ")
         self.search.setStyleSheet("QLineEdit { background-color: #555; color: white; border-radius: 5px; padding: 8px; border: none; font-size: 14px;text-align: center; }")
         self.search.setReadOnly(True)
         self.search.setCursor(QCursor(Qt.CursorShape.ForbiddenCursor))
@@ -154,10 +194,10 @@ class CurseForgePlugin(BasePlugin):
         self.error_widget.setStyleSheet("QFrame#error_widget { background-color: rgba(60, 20, 20, 230); border-radius: 10px; border: 2px solid #ff4444; }")
         self.error_widget.hide()  
         error_inner_layout = QVBoxLayout(self.error_widget)
-        self.error_msg = QLabel("Ошибка CurseForge API")
+        self.error_msg = QLabel()
         self.error_msg.setStyleSheet("color: white; font-weight: bold; background: transparent;")
         error_inner_layout.addWidget(self.error_msg)
-        self.retry_btn = QPushButton("Повторить")
+        self.retry_btn = QPushButton()
         self.retry_btn.clicked.connect(self.manual_retry)
         error_inner_layout.addWidget(self.retry_btn)
 
@@ -217,6 +257,8 @@ class CurseForgePlugin(BasePlugin):
         self.fade_sync_timer = QTimer()
         self.fade_sync_timer.timeout.connect(self._reposition_fade_effects)
         self.fade_sync_timer.start(50)
+
+        self.update_ui_texts(self.app.lang)
   
     def _reposition_fade_effects(self):
         if not self.container.isVisible(): return
@@ -239,7 +281,7 @@ class CurseForgePlugin(BasePlugin):
 
     def on_settings_changed(self, key, value):
         if key == "new_style": self.tab_btn.setStyleSheet(tabs_style_new if value else tabs_style)
-        elif key == "lang": self.tab_btn.setText("Модпаки")
+        # Language change is handled by on_language_change
 
     def start_search(self, append=False):
         if not append:
