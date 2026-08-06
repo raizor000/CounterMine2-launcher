@@ -31,7 +31,8 @@ class MarketIconLoader(QtCore.QRunnable):
         self.signals = MarketIconSignals()
 
     def run(self):
-        if not self.url: return  
+        if not self.url:
+            return
         try:
             url_hash = hashlib.md5(self.url.encode()).hexdigest()
             ext = "png"
@@ -1027,8 +1028,8 @@ class LauncherUI(QWidget):
         plugin_name = plugin.get('name')
         is_internal = plugin.get('class') and plugin['class'].__module__.startswith('scripts.internal')
         is_enabled = self.launcher.plugin_states.get(plugin_id, True)
-        already_installed = any(p['id'] == plugin_id or p['name'] == plugin_name for p in self.launcher.plugin_manager.discovered_plugins)
-        
+        already_installed = any(str(p['id']).replace("main.", "") == str(plugin_id).replace("main.", "") or p['name'] == plugin_name for p in self.launcher.plugin_manager.discovered_plugins)
+
         card_width = (self.plugins_manager_container.width() - 460) // 2  
         card = QFrame()
         card.setFixedSize(card_width, 180)
@@ -1058,38 +1059,19 @@ class LauncherUI(QWidget):
         else:  
             icon_lbl.setStyleSheet("background-color: #444; border-radius: 20px;")
         header.addWidget(icon_lbl)
-        
+
+        if len(plugin['name']) > 32:
+            plugin['name'] = plugin['name'][:32]
+
+        if len(plugin['description']) > 90:
+            plugin['description'] = plugin['description'][:90]
+
         name_lbl = QLabel(f"<b>{plugin['name']}</b>")
         name_lbl.setStyleSheet("color: white; font-size: 17px; background: transparent;")
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignBottom)
         name_lbl.setWordWrap(True)
         header.addWidget(name_lbl, 1)  
-        
-        if self.plugin_market_view:
-            toggle = QPushButton(t(self.lang, "btn_install"))
-            toggle.setFixedSize(80, 30)
-            toggle.setStyleSheet("background: #45A049; color: white; border-radius: 5px;")
-            if already_installed:
-                toggle.setText(t(self.lang, "btn_installed"))
-                toggle.setEnabled(False)
-                toggle.setStyleSheet("background: #555; color: #888; border-radius: 5px;")
-            else:
-                toggle.clicked.connect(lambda _, p=plugin, b=toggle: self._install_plugin(p, b))
-            header.addWidget(toggle)
-        else:
-            update_available = plugin.get('update_available', False)
-            if update_available:
-                update_btn = QPushButton(t(self.lang, "btn_update").format(v=plugin['latest_version']))
-                update_btn.setFixedHeight(30)
-                update_btn.setStyleSheet("background: #0288d1; color: white; border-radius: 5px; font-weight: bold;")
-                update_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-                update_btn.clicked.connect(lambda _, p=plugin, b=update_btn: self._update_plugin(p, b))
-                header.addWidget(update_btn)
-            else:
-                toggle = SwitchButton()
-                toggle.setChecked(is_enabled)
-                toggle.stateChanged.connect(lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))
-                header.addWidget(toggle)
+
         lay.addLayout(header)
         
         desc_lbl = QLabel(plugin['description'])
@@ -1103,12 +1085,40 @@ class LauncherUI(QWidget):
         meta_lbl.setStyleSheet("color: #777; font-size: 10px; background: transparent;")
         is_essential = getattr(plugin.get('class'), 'is_essential', False)
         footer.addWidget(meta_lbl)
+        if self.plugin_market_view:
+            toggle = QPushButton(t(self.lang, "btn_install"))
+            toggle.setFixedSize(80, 30)
+            toggle.setStyleSheet("background: #45A049; color: white; border-radius: 5px;")
+            if already_installed:
+                toggle.setText(t(self.lang, "btn_installed"))
+                toggle.setEnabled(False)
+                toggle.setStyleSheet("background: #555; color: #888; border-radius: 5px;")
+            else:
+                toggle.clicked.connect(lambda _, p=plugin, b=toggle: self._install_plugin(p, b))
+            footer.addWidget(toggle)
+        else:
+            toggle = SwitchButton()
+            toggle.setChecked(is_enabled)
+            toggle.setStyleSheet(new_switch_style)
+            toggle.stateChanged.connect(
+                lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))
+            footer.addWidget(toggle)
+
         if not self.plugin_market_view and not is_internal and not is_essential:
             footer.addStretch()
+            update_available = plugin.get('update_available', False)
+            if update_available:
+                update_btn = QPushButton(t(self.lang, "btn_update"))
+                update_btn.setFixedSize(60, 26)
+                update_btn.setStyleSheet("background: #0288d1; color: white; border-radius: 5px; font-weight: bold;")
+                update_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                update_btn.clicked.connect(lambda _, p=plugin, b=update_btn: self._update_plugin(p, b))
+                footer.addWidget(update_btn)
+
             del_btn = QPushButton(t(self.lang, "btn_delete_plugin"))
-            del_btn.setFixedSize(70, 22)
+            del_btn.setFixedSize(50, 26)
             del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            del_btn.setStyleSheet("background: #d32f2f; color: white; border-radius: 4px; font-size: 10px; font-weight: bold;")
+            del_btn.setStyleSheet("background: #d32f2f; color: white; border-radius: 4px; font-weight: bold;")
             del_btn.clicked.connect(lambda _, pid=plugin_id: self._delete_plugin(pid))
             footer.addWidget(del_btn)
         lay.addLayout(footer)
