@@ -107,7 +107,7 @@ class CurseIconLoader(QtCore.QRunnable):
 
 class CurseForgePlugin(BasePlugin):
     name = "CurseForge Integration (Зеркало)"
-    description = "Поиск и установка модов с ЗЕРКАЛА CurseForge\nНЕ может работать одновременно с Modrinth"
+    description = "Поиск и установка модов с ЗЕРКАЛА CurseForge. НЕ может работать одновременно с Modrinth"
     author = "raizor"
     icon = "assets/pixmaps/curseforge.png"
     version = "1.0.0"
