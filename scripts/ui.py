@@ -60,6 +60,7 @@ class MarketIconLoader(QtCore.QRunnable):
 
 class LauncherUI(QWidget):
     play_clicked = pyqtSignal()
+    menu_item_clicked = pyqtSignal(str)
     reinstall_client = pyqtSignal()
     mod_action = pyqtSignal(str, str)
     reset_settings = pyqtSignal()
@@ -818,7 +819,7 @@ class LauncherUI(QWidget):
             QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
             QPushButton::menu-indicator { image: none; } 
         """)
-        self.play_menu = QMenu(self)
+        self.play_menu = QMenu("Выбор версии", self)
         self.play_menu.setStyleSheet("""
             QMenu { background-color: #fbac18; border: 1px solid #ccc; border-radius: 5px; color: black; }
             QMenu::item { padding: 5px 20px 5px 20px; }
@@ -834,15 +835,15 @@ class LauncherUI(QWidget):
         self.play_btn.clicked.connect(self.play_clicked.emit)
         self.play_btn.raise_()
 
+    @pyqtSlot(list)
+    def fill_menu_items(self, items):
+        self.play_menu.clear()
+        for item in items:
+            self.play_menu.addAction(item)
+
     def on_menu_item_clicked(self, action):
         selected_text = action.text()
-
-        if selected_text == "Режим 1":
-            print("1")
-        elif selected_text == "Режим 2":
-            print("2")
-        elif selected_text == "Настройки запуска":
-            print("3")
+        self.menu_item_clicked.emit(str(selected_text))
 
     def _create_about_card(self):
         card = QFrame()
@@ -1655,7 +1656,7 @@ class LauncherUI(QWidget):
             self.status.hide()
         self.bal.setText(str(balance) if balance is not None else "0")
 
-    @pyqtSlot(dict)
+    @pyqtSlot(object)
     def update_auth_ui(self, user_data):
         try:
             if user_data:

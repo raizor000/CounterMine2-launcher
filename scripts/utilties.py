@@ -95,7 +95,7 @@ def is_fabric_installed(mc_path: str, vanilla_version: str) -> bool:
 
 
 
-def is_mc_running(pid):
+def is_mc_running(pid, version_str):
     if sys.platform == "win32":
         found = False
 
@@ -112,7 +112,7 @@ def is_mc_running(pid):
 
             title = win32gui.GetWindowText(hwnd)
 
-            if "Minecraft" in title and VERSION in title:
+            if "Minecraft" in title and version_str in title:
                 found = True
 
         win32gui.EnumWindows(callback, None)

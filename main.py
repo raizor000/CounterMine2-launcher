@@ -21,7 +21,7 @@ if sys.platform == 'win32':
 else:
     winreg = None
 import minecraft_launcher_lib.types
-from PyQt6.QtCore import QPoint, Qt, QCoreApplication
+from PyQt6.QtCore import QPoint, Qt, QCoreApplication, pyqtSignal
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtMultimedia import QSoundEffect
 from PyQt6.QtGui import QMouseEvent, QGuiApplication, QPalette, QIcon, QPixmap
@@ -105,6 +105,8 @@ class LauncherApp(QtWidgets.QMainWindow):
     update_download_message = pyqtSignal(str)
     plugin_updates_checked = pyqtSignal()
     log_signal = pyqtSignal(str, str)
+    populate_versions_signal = pyqtSignal(list)
+    auth_update_signal = pyqtSignal(object)
 
     def __init__(self):
         super().__init__()
@@ -129,6 +131,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.lang = "ru_ru"
         self.ip = "0.0.0.0"
         self.minecraft_pid = -1
+        self.selected_version = VERSION
 
         self.setWindowTitle("CounterMine2 Launcher")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -139,6 +142,29 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.fetcher = Fetcher()
         self.ui = LauncherUI(LAUNCHER_VERSION, self.ip, self.lang, self)
+
+        def load_versions():
+            try:
+                self.write_log("Fetching Minecraft version list...")
+                all_versions = minecraft_launcher_lib.utils.get_version_list()
+                release_versions = [v['id'] for v in all_versions if v['type'] == 'release']
+
+                start_v = version.parse("1.21.11")
+
+                filtered_versions = [v for v in release_versions if version.parse(v) >= start_v]
+                sorted_versions = sorted(filtered_versions, key=version.parse, reverse=True)
+
+                if not sorted_versions:
+                    self.write_warn("Could not find versions >= 1.21.11, using fallback.")
+                    sorted_versions = ["1.21.11"]
+
+                self.write_log(f"Found {len(sorted_versions)} versions to display.")
+                self.populate_versions_signal.emit(sorted_versions)
+            except Exception as e:
+                self.write_error(f"Failed to get Minecraft versions: {e}")
+                self.populate_versions_signal.emit(["1.21.11"])
+
+        threading.Thread(target=load_versions, daemon=True).start()
 
         self.load_settings()
 
@@ -167,13 +193,15 @@ class LauncherApp(QtWidgets.QMainWindow):
             except Exception as e:
                 print(f"Error pre-filling console: {e}")
 
-        self.ui.debug_console_switch.setChecked(self.show_debug_console)
         if self.show_debug_console:
             self.console_window.show()
 
         self.plugin_manager = PluginManager(self)
         self.plugin_manager.load_internal_plugins()
         self.plugin_manager.load_plugins()
+
+        self.populate_versions_signal.connect(self.ui.fill_menu_items, QtCore.Qt.ConnectionType.QueuedConnection)
+        self.auth_update_signal.connect(self.ui.update_auth_ui, QtCore.Qt.ConnectionType.QueuedConnection)
 
         threading.Thread(target=self._check_for_plugin_updates_async, daemon=True).start()
 
@@ -361,8 +389,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.save_settings()
 
-        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
-                                        QtCore.Q_ARG(dict, user_data))
+        self.auth_update_signal.emit(user_data)
 
         if self.nickname:
             self.ui.set_play_enabled(True)
@@ -370,8 +397,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def on_auth_failed(self, error):
         self.write_error(f"[Auth] Ошибка авторизации: {error}")
-        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
-                                        QtCore.Q_ARG(dict, {}))
+        self.auth_update_signal.emit({})
 
     def on_logged_out(self):
         self.write_log(f"[Auth] Пользователь вышел из аккаунта")
@@ -381,8 +407,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         self.save_settings()
 
-        QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
-                                        QtCore.Q_ARG(dict, {}))
+        self.auth_update_signal.emit({})
 
     def on_settings_changed(self, key: str, value: object):
         try:
@@ -531,6 +556,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.ui.snow_switch.setChecked(self.show_snow)
 
                 self.discord_rpc = rpc
+                self.ui.debug_console_switch.setChecked(self.show_debug_console)
                 self.ui.lang_dropdown.current = "Русский" if self.lang == "ru_ru" else "English"
 
 
@@ -546,6 +572,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     def connect_signals(self):
         self.ui.play_clicked.connect(self.on_play_clicked)
+        self.ui.menu_item_clicked.connect(self.on_version_selected)
         self.ui.reinstall_client.connect(self.reinstall_client)
         self.ui.mod_action.connect(self.handle_mod_action)
         self.ui.settings_changed.connect(self.on_settings_changed)
@@ -558,16 +585,19 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.auth_manager.auth_failed.connect(self.on_auth_failed)
         self.auth_manager.logged_out.connect(self.on_logged_out)
 
-        self.plugin_updates_checked.connect(lambda:
-                                            QtCore.QMetaObject.invokeMethod(self.ui, "_populate_plugins",
-                                                                            QtCore.Qt.ConnectionType.QueuedConnection)
-                                            if self.ui.plugins_manager_container.isVisible() and not self.ui.plugin_market_view
-                                            else None
-                                            )
+        self.plugin_updates_checked.connect(self._on_plugin_updates_checked)
         self.fetcher.newsFetched.connect(self.ui.update_news)
         self.fetcher.onlineFetched.connect(self.ui.update_online_and_ping_labels)
 
         self.show_message_signal.connect(self._show_message)
+
+    def _on_plugin_updates_checked(self):
+        if self.ui.plugins_manager_container.isVisible() and not self.ui.plugin_market_view:
+            self.ui._populate_plugins()
+
+    def on_version_selected(self, version_id: str):
+        self.write_log(f"Выбрана версия для запуска: {version_id}")
+        self.selected_version = version_id
 
     def update_rpc(self, enable=True):
         if enable:
@@ -577,7 +607,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.rpc.connect()
                     self.rpc.update(
                         details="CounterMine2",
-                        state=f"direct.cherry.pizza | Версия: {VERSION}",
+                        state=f"direct.cherry.pizza | Версия: {self.selected_version}",
                         large_image="logo2",
                         large_text="CounterMine2 Client",
                         start=int(time.time()),
@@ -596,7 +626,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 try:
                     self.rpc.update(
                         details="CounterMine2",
-                        state=f"direct.cherry.pizza | Версия: {VERSION}",
+                        state=f"direct.cherry.pizza | Версия: {self.selected_version}",
                         large_image="logo2",
                         large_text="CounterMine2 Client",
                         start=int(time.time()),
@@ -824,21 +854,21 @@ class LauncherApp(QtWidgets.QMainWindow):
             except Exception as e:
                 self.write_error(f"Не удалось создать servers.dat: {e}")
 
-            if not is_fabric_installed(str(MC_DIR), VERSION):
+            if not is_fabric_installed(str(MC_DIR), self.selected_version):
                 self._launching = False
                 self._installing = True
-                self.write_log(f"[Установка] Начата загрузка Minecraft Fabric {VERSION}...")
-                download_with_progress(VERSION, str(MC_DIR), progress_callback)
-                self.write_log(f"[Установка] Minecraft Fabric {VERSION} успешно установлен")
+                self.write_log(f"[Установка] Начата загрузка Minecraft Fabric {self.selected_version}...")
+                download_with_progress(self.selected_version, str(MC_DIR), progress_callback)
+                self.write_log(f"[Установка] Minecraft Fabric {self.selected_version} успешно установлен")
 
             self._launching = True
             self._installing = False
-            self.write_log(f"[Запуск] Подготовка запуска Minecraft {VERSION}...")
+            self.write_log(f"[Запуск] Подготовка запуска Minecraft {self.selected_version}...")
 
             fabric_version_id = None
             for v in minecraft_launcher_lib.utils.get_installed_versions(str(MC_DIR)):
                 print(v)
-                if v["id"].startswith("fabric-loader") and VERSION in v["id"]:
+                if v["id"].startswith("fabric-loader") and self.selected_version in v["id"]:
                     fabric_version_id = v["id"]
                     break
             print(fabric_version_id)
@@ -920,7 +950,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         msg.exec()
 
     def _check_mc_state(self):
-        running = is_mc_running(pid=self.minecraft_pid)
+        running = is_mc_running(pid=self.minecraft_pid, version_str=self.selected_version)
 
         if running:
             self.fetcher.set_game(True)
