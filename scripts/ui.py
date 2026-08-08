@@ -820,9 +820,9 @@ class LauncherUI(QWidget):
         """)
         self.play_menu = QMenu(self)
         self.play_menu.setStyleSheet("""
-            QMenu { background-color: white; border: 1px solid #ccc; border-radius: 5px; }
+            QMenu { background-color: #fbac18; border: 1px solid #ccc; border-radius: 5px; color: black; }
             QMenu::item { padding: 5px 20px 5px 20px; }
-            QMenu::item:selected { background-color: #45A049; color: white; }
+            QMenu::item:selected { background-color: #e69500; color: black; }
         """)
         self.play_menu.addAction("Режим 1")
         self.play_menu.addAction("Режим 2")
