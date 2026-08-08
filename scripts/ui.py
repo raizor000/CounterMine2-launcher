@@ -15,7 +15,7 @@ from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDa
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGridLayout, QLabel, \
     QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, \
-    QGraphicsScene, QApplication
+    QGraphicsScene, QApplication, QMenu
 from .constants import MODRINTH_TAB_INDEX
 from .constants import MODRINTH_TAB_INDEX, PLUGINS_ICON_CACHE
 from .utilties import *
@@ -770,20 +770,82 @@ class LauncherUI(QWidget):
 
         pfw, pfh = 240, ofh
 
-        self.play_btn = QPushButton("Играть", self)
-        self.play_btn.setGeometry(self.width() - pfw - 113, self.height() - pfh - 10, pfw, pfh)
-        self.play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-                                        ))
-        self.play_btn.setFont(QFont("sans-serif", 13, QFont.Weight.Bold))
-        self.play_btn.setStyleSheet("""
-            QPushButton { background-color: #45A049; color:white; border-radius:10px; }
+        self.play_container = QWidget(self)
+        self.play_container.setGeometry(self.width() - pfw - 113, self.height() - pfh - 10, pfw, pfh)
+
+        layout = QHBoxLayout(self.play_container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        main_width = int(pfw * 0.9)
+        menu_width = pfw - main_width
+        self.main_play_btn = QPushButton("Играть")
+        self.main_play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.main_play_btn.setFont(QFont("sans-serif", 13, QFont.Weight.Bold))
+        self.main_play_btn.setFixedWidth(main_width)
+        self.main_play_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+
+        self.main_play_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #45A049; 
+                color: white; 
+                border-top-left-radius: 10px; 
+                border-bottom-left-radius: 10px;
+                border-top-right-radius: 0px; 
+                border-bottom-right-radius: 0px;
+                border-right: 1px solid #358039; 
+            }
             QPushButton:hover:!disabled { background-color: #45a800; }
             QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
         """)
+
+        self.menu_btn = QPushButton("▼")
+        self.menu_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.menu_btn.setFont(QFont("sans-serif", 9, QFont.Weight.Bold))
+        self.menu_btn.setFixedWidth(menu_width)
+        self.menu_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.menu_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #45A049; 
+                color: white; 
+                border-top-left-radius: 0px; 
+                border-bottom-left-radius: 0px;
+                border-top-right-radius: 10px; 
+                border-bottom-right-radius: 10px;
+                padding-bottom: 2px;
+            }
+            QPushButton:hover:!disabled { background-color: #45a800; }
+            QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
+            QPushButton::menu-indicator { image: none; } 
+        """)
+        self.play_menu = QMenu(self)
+        self.play_menu.setStyleSheet("""
+            QMenu { background-color: white; border: 1px solid #ccc; border-radius: 5px; }
+            QMenu::item { padding: 5px 20px 5px 20px; }
+            QMenu::item:selected { background-color: #45A049; color: white; }
+        """)
+        self.play_menu.addAction("Режим 1")
+        self.play_menu.addAction("Режим 2")
+        self.play_menu.addAction("Настройки запуска")
+
+        self.menu_btn.setMenu(self.play_menu)
+        layout.addWidget(self.main_play_btn)
+        layout.addWidget(self.menu_btn)
+
+        self.play_btn = self.main_play_btn
+        self.play_menu.triggered.connect(self.on_menu_item_clicked)
         self.play_btn.clicked.connect(self.play_clicked.emit)
         self.play_btn.raise_()
 
+    def on_menu_item_clicked(self, action):
+        selected_text = action.text()
 
+        if selected_text == "Режим 1":
+            print("1")
+        elif selected_text == "Режим 2":
+            print("2")
+        elif selected_text == "Настройки запуска":
+            print("3")
 
     def _create_about_card(self):
         card = QFrame()
@@ -1901,6 +1963,7 @@ class LauncherUI(QWidget):
 
             self.ping_frame.setVisible(index == 0 or is_cs2_theme)
             self.play_btn.setVisible(index == 0 or is_cs2_theme)
+            self.menu_btn.setVisible(index == 0 or is_cs2_theme)
             self.online_frame.setVisible(index == 0 or is_cs2_theme)
             self.buttons_block.setVisible(index == 0)
 
@@ -2173,6 +2236,7 @@ class LauncherUI(QWidget):
 
     def set_play_enabled(self, yes: bool):
         self.play_btn.setEnabled(yes)
+        self.menu_btn.setEnabled(yes)
 
     def update_online_label(self, text):
         self.online_label.setText(text)

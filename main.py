@@ -271,7 +271,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 local_id = plugin.get('id')
                 local_id = str(local_id).replace("main.", "")
                 if local_id in {p['id']: p for p in self.remote_plugins}:
-                    if plugin["update_available"]:
+                    if hasattr(plugin, "update_available"):
                         have_updates.append(f"{plugin['name']}\n{plugin['version']} → {plugin['latest_version']}\n")
 
             if len(have_updates) > 0:
@@ -455,6 +455,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ui.more_btn.setStyleSheet(new_btn_style)
         self.ui.plugins_btn.setStyleSheet(new_btn_style)
         self.ui.play_btn.setStyleSheet(new_play_btn_style)
+        self.ui.menu_btn.setStyleSheet(new_play_menu_btn_style)
         self.ui.rpc_switch.setOnColor(new_switch_style)
         self.ui.snow_switch.setOnColor(new_switch_style)
         self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
