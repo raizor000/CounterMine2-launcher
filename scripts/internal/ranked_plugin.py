@@ -91,10 +91,10 @@ class QueueFetcher(QtCore.QObject):
                             if nick:
                                 names.append((str(nick).strip(), str(rating).strip()))
                     else:
-                        names = []
+                        names = ["error"]
 
                 except Exception as e:
-                    names = ["error"*10]
+                    names = ["error"]
                     print(f"[Fetcher] Queue Error: {e}")
 
                 names.sort(key=lambda x: x[0] if isinstance(x[0], (str)) else 0, reverse=False)
@@ -380,11 +380,11 @@ class RankedPlugin(BasePlugin):
         occupied = len(names)
         current_user_nickname = self.app.nickname
 
-        if names and names[0][0] == "error"*10:
+        if len(names) == 1 and names[0] == "error":
             occupied = 0
             names = []
-            self.counter_label.hide()
-            self.queue_label.hide()
+            self.counter_label.setText("")
+            self.queue_label.setText("Не удалось получить информацию")
             
         if occupied == 0 and len(self.last_queue_names) == 9 and current_user_nickname:
             was_in_queue = any(

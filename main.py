@@ -15,6 +15,7 @@ import uuid
 import zipfile
 import shutil
 import sys
+
 if sys.platform == 'win32':
     import winreg
 else:
@@ -35,7 +36,6 @@ from scripts.fetcher import *
 from scripts.ui import *
 from scripts.utilties import *
 from scripts.debug_console import DebugConsoleWindow
-
 
 QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
@@ -100,7 +100,7 @@ class _StdoutRedirector:
 
 
 class LauncherApp(QtWidgets.QMainWindow):
-    show_message_signal = pyqtSignal(str, str)
+    show_message_signal = pyqtSignal(str, str, QMessageBox.Icon)
     update_download_progress = pyqtSignal(int, int, int)
     update_download_message = pyqtSignal(str)
     plugin_updates_checked = pyqtSignal()
@@ -177,11 +177,10 @@ class LauncherApp(QtWidgets.QMainWindow):
 
         threading.Thread(target=self._check_for_plugin_updates_async, daemon=True).start()
 
-        self.ui.update_ui(self.lang)  
+        self.ui.update_ui(self.lang)
         self.ui.header_frame.mousePressEvent = self.start_move
         self.ui.header_frame.mouseMoveEvent = self.do_move
         self.fetcher.set_lang(self.lang)
-        
 
         self.icon_p = str(get_resource_path("assets/icons/ico.ico"))
         self.setWindowIcon(QIcon(self.icon_p))
@@ -207,8 +206,8 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.start_fetching()
         self.connect_signals()
         self.options = minecraft_launcher_lib.types.MinecraftOptions(
-            username=self.nickname,
-            uuid=str(uuid.uuid4()),  
+            username=str(self.nickname),
+            uuid=str(uuid.uuid4()),
             token="0",
             quickPlayMultiplayer="direct.cherry.pizza",
             jvmArguments=["-Xmx1g"],
@@ -221,13 +220,13 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.mc_timer.start(2000)
 
         if self.discord_rpc:
-            threading.Thread(target=self.update_rpc, daemon=True).start() 
+            threading.Thread(target=self.update_rpc, daemon=True).start()
 
         threading.Thread(target=self.auth_manager.check_auth_status, daemon=True).start()
 
         self.apply_theme()
 
-        for plugin in self.plugin_manager.plugins: 
+        for plugin in self.plugin_manager.plugins:
             plugin.on_ui_ready()
 
         QTimer.singleShot(50, lambda: (
@@ -261,13 +260,27 @@ class LauncherApp(QtWidgets.QMainWindow):
         os.execl(current_executable, current_executable, *sys.argv)
 
     def _check_for_plugin_updates_async(self):
-        """Fetches remote plugin list and checks for updates for installed plugins."""
-        time.sleep(5)
         self.write_log("[Update] Starting background check for plugin updates...")
         if self.fetch_remote_plugins():
             self.plugin_manager.check_for_updates()
             self.write_log("[Update] Background plugin update check finished.")
             self.plugin_updates_checked.emit()
+            have_updates = []
+
+            for plugin in self.plugin_manager.discovered_plugins:
+                local_id = plugin.get('id')
+                local_id = str(local_id).replace("main.", "")
+                if local_id in {p['id']: p for p in self.remote_plugins}:
+                    if hasattr(plugin, "update_available"):
+                        have_updates.append(f"{plugin['name']}\n{plugin['version']} → {plugin['latest_version']}\n")
+
+            if len(have_updates) > 0:
+                updates_text = "\n".join(have_updates)
+                self.show_message_signal.emit(
+                    t(self.lang, "plugin_update_confirm_title"),
+                    f"Доступны обновления для следующих плагинов:\n\n{updates_text}",
+                    QMessageBox.Icon.Information
+                )
         else:
             self.write_warn("[Update] Could not fetch remote plugin list for update check.")
 
@@ -275,7 +288,6 @@ class LauncherApp(QtWidgets.QMainWindow):
     def is_cs2_theme_active(self) -> bool:
         from scripts.internal.counterstrike2theme import UI_Modifier
         return any(isinstance(p, UI_Modifier) for p in self.plugin_manager.plugins) and sys.platform == "win32"
-
 
     def register_url_protocol(self):
         if sys.platform != 'win32':
@@ -347,7 +359,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.options["uuid"] = user_data.get("id", str(uuid.uuid4()))
         self.options["token"] = self.auth_manager.tokens.get("access_token", "0")
 
-        self.save_settings()  
+        self.save_settings()
 
         QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
                                         QtCore.Q_ARG(dict, user_data))
@@ -367,7 +379,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.options["username"] = None
         self.options["token"] = "0"
 
-        self.save_settings()  
+        self.save_settings()
 
         QtCore.QMetaObject.invokeMethod(self.ui, "update_auth_ui", QtCore.Qt.ConnectionType.QueuedConnection,
                                         QtCore.Q_ARG(dict, {}))
@@ -380,7 +392,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                         self.lang = "en_us"
                     case "Русский":
                         self.lang = "ru_ru"
-                self.save_settings()  
+                self.save_settings()
                 self.ui.update_ui(self.lang)
                 self.console_window.update_ui(self.lang)
                 self.fetcher.set_lang(self.lang)
@@ -388,7 +400,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     plugin.on_language_change(lang=self.lang)
 
             elif key == "snow" and is_winter_period():
-                self.show_snow = bool(value)  
+                self.show_snow = bool(value)
                 self.save_settings()
                 if self.show_snow:
                     self.snow.show()
@@ -397,7 +409,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.snow.hide()
                     self.ui.snow_switch.setChecked(bool(self.show_snow))
 
-            elif key == "rpc":  
+            elif key == "rpc":
                 self.discord_rpc = bool(value)
                 if bool(value):
                     threading.Thread(target=self.update_rpc, daemon=True).start()
@@ -428,10 +440,10 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.ui._populate_plugins()
                 action = "включен" if enabled else "выключен"
                 self.write_log(f"[Плагины] {plugin_id} {action}. Требуется перезапуск.")
-                QMessageBox.information(self, "Плагины", "Для применения изменений (включения/выключения) плагинов требуется перезапуск лаунчера.")
+                QMessageBox.information(self, "Плагины",
+                                        "Для применения изменений (включения/выключения) плагинов требуется перезапуск лаунчера.")
         except Exception as e:
             self.write_error(f"[Настройки] Ошибка при изменении '{key}': {str(e)}")
-
 
     def apply_theme(self):
         self.ui.tab_news_btn.setStyleSheet(tabs_style_new)
@@ -443,9 +455,11 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ui.more_btn.setStyleSheet(new_btn_style)
         self.ui.plugins_btn.setStyleSheet(new_btn_style)
         self.ui.play_btn.setStyleSheet(new_play_btn_style)
+        self.ui.menu_btn.setStyleSheet(new_play_menu_btn_style)
         self.ui.rpc_switch.setOnColor(new_switch_style)
         self.ui.snow_switch.setOnColor(new_switch_style)
         self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
+        self.ui.debug_console_switch.setStyleSheet(new_btn_style)
 
     def save_settings(self):
         settings = {
@@ -457,7 +471,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             "new_style": self.new_style,
             "plugin_states": self.plugin_states,
             "show_debug_console": self.show_debug_console
-        }  
+        }
         try:
             with open(LAUNCHER_DIR / "settings.json", "w", encoding="utf-8") as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
@@ -481,7 +495,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             if not os.path.exists(LAUNCHER_DIR / "settings.json"):
                 self.save_settings()
 
-            with open(LAUNCHER_DIR / "settings.json", "r", encoding="utf-8") as f:  
+            with open(LAUNCHER_DIR / "settings.json", "r", encoding="utf-8") as f:
                 data = json.load(f)
                 nick = data.get("nickname", "")
                 lang = data.get("lang", "ru_ru")
@@ -501,7 +515,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 if is_winter_period():
                     if snow:
                         self.snow.show()
-                    else:  
+                    else:
                         self.snow.hide()
 
                 if nick:
@@ -545,15 +559,15 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.auth_manager.logged_out.connect(self.on_logged_out)
 
         self.plugin_updates_checked.connect(lambda:
-            QtCore.QMetaObject.invokeMethod(self.ui, "_populate_plugins", QtCore.Qt.ConnectionType.QueuedConnection)
-            if self.ui.plugins_manager_container.isVisible() and not self.ui.plugin_market_view
-            else None
-        )
+                                            QtCore.QMetaObject.invokeMethod(self.ui, "_populate_plugins",
+                                                                            QtCore.Qt.ConnectionType.QueuedConnection)
+                                            if self.ui.plugins_manager_container.isVisible() and not self.ui.plugin_market_view
+                                            else None
+                                            )
         self.fetcher.newsFetched.connect(self.ui.update_news)
         self.fetcher.onlineFetched.connect(self.ui.update_online_and_ping_labels)
 
         self.show_message_signal.connect(self._show_message)
-
 
     def update_rpc(self, enable=True):
         if enable:
@@ -561,7 +575,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 try:
                     self.rpc = Presence("1493262434566144000")
                     self.rpc.connect()
-                    self.rpc.update(  
+                    self.rpc.update(
                         details="CounterMine2",
                         state=f"direct.cherry.pizza | Версия: {VERSION}",
                         large_image="logo2",
@@ -593,7 +607,7 @@ class LauncherApp(QtWidgets.QMainWindow):
 
                         ]
                     )
-                except Exception as e:  
+                except Exception as e:
                     self.rpc = None
                     self.write_log(f"Ошибка обновления RPC: {str(e)}", level="ERROR")
         else:
@@ -613,7 +627,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.StandardButton.Yes
         )
 
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:  
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
             self._deleting = True
             QtCore.QTimer.singleShot(0,
                                      lambda: self.ui.set_play_status(t(self.lang, "cleanup_status")))
@@ -627,7 +641,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                                 os.remove(file_path)
                             elif os.path.isdir(file_path):
                                 shutil.rmtree(file_path)
-                        except Exception as e:  
+                        except Exception as e:
                             self.write_log(f"Ошибка при удалении файла/папки {file}: {str(e)}")
                             continue
 
@@ -664,7 +678,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             else:
                 self.write_log(f"Файлы для мода {mod_slug} не найдены")
 
-            self.ui.refresh_installed_mods_display()  
+            self.ui.refresh_installed_mods_display()
         except Exception as e:
             self.write_log(f"Ошибка при {action} мода {mod_slug}: {str(e)}")
 
@@ -782,7 +796,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 timeout=3
             )
             fh_log.seek(0)
-            self.write_log("[logs] log posted" if resp.ok else f"failed posting log ({resp.status_code})", "INFO" if resp.ok else "ERROR")
+            self.write_log("[logs] log posted" if resp.ok else f"failed posting log ({resp.status_code})",
+                           "INFO" if resp.ok else "ERROR")
         except Exception as e:
             self.write_log(f"Error submitting logfile: {str(e)}")
         finally:
@@ -794,6 +809,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             if not self.nickname:
                 self.write_warn("[Запуск] Нельзя запустить: никнейм не установлен")
                 return 1
+
             def progress_callback(progress):
                 self.ui.play_btn.setText(f"{t(self.lang, 'install_status')} {progress}")
 
@@ -827,7 +843,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                     break
             print(fabric_version_id)
 
-
             if fabric_version_id:
                 self.write_log(f"[Запуск] Найден загрузчик: {fabric_version_id}")
                 cmd = minecraft_launcher_lib.command.get_minecraft_command(fabric_version_id, str(MC_DIR), self.options)
@@ -837,12 +852,12 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self._installing = False
                 self.show_message_signal.emit(
                     t(self.lang, "game_error_title"),
-                    "Не найден загрузчик Fabric!Попробуйте переустановить клиент"
+                    "Не найден загрузчик Fabric!Попробуйте переустановить клиент",
+                    QMessageBox.Icon.Critical
                 )
                 return
 
             self.write_log(f"[Запуск] Java-команда: {cmd[0]}")
-
 
             with open(self.log_file, "a", encoding="utf-8") as f:
                 popen_kwargs = {
@@ -854,7 +869,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                     'encoding': "UTF-8",
                 }
                 if sys.platform == 'win32':
-                    popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                    popen_kwargs[
+                        'creationflags'] = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
                 else:
                     popen_kwargs['start_new_session'] = True
 
@@ -884,23 +900,23 @@ class LauncherApp(QtWidgets.QMainWindow):
             self._launching = False
             self._installing = False
 
-
             threading.Thread(target=self.submit_logfile, daemon=True).start()
 
             if ret:
                 self.show_message_signal.emit(
                     t(self.lang, "game_error_title"),
-                    t(self.lang, "game_error_text")
+                    t(self.lang, "game_error_text"),
+                    QMessageBox.Icon.Critical
                 )
 
         except Exception as e:
             self.write_error(f"[Запуск] Непредвиденная ошибка: {e}")
 
-    def _show_message(self, title, text):
+    def _show_message(self, title, text, icon_type=QMessageBox.Icon.Warning):
         msg = QMessageBox(self)
         msg.setWindowTitle(title)
         msg.setText(text)
-        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setIcon(icon_type)
         msg.exec()
 
     def _check_mc_state(self):
@@ -934,13 +950,12 @@ class LauncherApp(QtWidgets.QMainWindow):
             if not self.isVisible():
                 self.show()
 
-
     def start_move(self, event):
         if isinstance(event, QMouseEvent):
             if event.button() == Qt.MouseButton.LeftButton:
                 self.old_pos = event.globalPosition()
 
-    def do_move(self, event):  
+    def do_move(self, event):
         if self.old_pos:
             delta = event.globalPosition() - self.old_pos
             self.move(
@@ -954,7 +969,7 @@ class LauncherApp(QtWidgets.QMainWindow):
     def minimize_window(self):
         self.showMinimized()
 
-    def handle_shader_action(self, slug: str, action: str):  
+    def handle_shader_action(self, slug: str, action: str):
         dir_path = os.path.join(str(MC_DIR), "shaderpacks")
         os.makedirs(dir_path, exist_ok=True)
         if action == "remove":
@@ -979,7 +994,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.ui.update_shader_status(slug, "remove")
         self.ui.refresh_installed_mods_display()
 
-    def handle_resourcepack_action(self, slug: str, action: str):  
+    def handle_resourcepack_action(self, slug: str, action: str):
         dir_path = os.path.join(str(MC_DIR), "resourcepacks")
         os.makedirs(dir_path, exist_ok=True)
         if action == "remove":
@@ -1032,21 +1047,10 @@ class LauncherApp(QtWidgets.QMainWindow):
 
 
 os.environ["QT_MULTIMEDIA_PREFERRED_PLUGINS"] = "windowsmediafoundation"
+
+
 # os.environ["QT_QUICK_BACKEND"] = "software"
 
-def qt_message_handler(mode, context, message):
-    if not message.strip():
-        return
-
-    level = "INFO"
-    if mode == QtCore.Qt.MsgType.QtDebugMsg:    level = "INFO"
-    elif mode == QtCore.Qt.MsgType.QtInfoMsg:   level = "INFO"
-    elif mode == QtCore.Qt.MsgType.QtWarningMsg:level = "WARN"
-    elif mode == QtCore.Qt.MsgType.QtCriticalMsg:level = "ERROR"
-    elif mode == QtCore.Qt.MsgType.QtFatalMsg:  level = "ERROR"
-
-    if 'win' in globals():
-        win.write_log(f"[Qt] {message}", level)
 
 
 try:
@@ -1056,7 +1060,6 @@ try:
         sys.exit(0)
 
     win = LauncherApp()
-    QtCore.qInstallMessageHandler(qt_message_handler)
     server = create_server(win)
 
     win.show()

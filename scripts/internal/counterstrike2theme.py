@@ -399,8 +399,9 @@ class BackgroundWidget(BasePandaWidget):
         global_mouse_pos = QtGui.QCursor.pos()
         if self.last_mouse_pos is not None and self.last_mouse_pos != global_mouse_pos:
             self.last_mouse_time = time.monotonic()
-            if not self.timer2.isActive() and not self._render_paused_manually:
-                self.resume_render()
+            if self.timer2:
+                if not self.timer2.isActive() and not self._render_paused_manually:
+                    self.resume_render()
         self.last_mouse_pos = global_mouse_pos
 
         widget_global_top_left = self.launcher.mapToGlobal(self.launcher.rect().topLeft())
@@ -582,7 +583,7 @@ class NewsToggleButton(QtWidgets.QPushButton):
         painter.rotate(self._angle)
         painter.scale(self._scale, self._scale)
         painter.translate(-cx, -cy)
-        opacity = 35 if self.underMouse() else 15
+        opacity = 120 if self.underMouse() else 70
         painter.setBrush(QtGui.QColor(255, 255, 255, opacity))
         painter.setPen(QtCore.Qt.PenStyle.NoPen)
         painter.drawEllipse(self.rect().adjusted(1, 1, -1, -1))
@@ -1058,35 +1059,36 @@ class UI_Modifier(BasePlugin):
 
         if hasattr(ui, 'play_btn') and hasattr(ui, 'header_frame'):
             ui.play_btn.setParent(ui.header_frame)
-            ui.play_btn.setFixedSize(120, 35)
-
-
-            center_x = (ui.header_frame.width() - ui.play_btn.width()) // 2
-            center_y = (ui.header_frame.height() - ui.play_btn.height()) // 2
             
-            ui.play_btn.move(center_x, center_y)
+            if not isinstance(ui.play_btn, AutoFontButton):
+                old = ui.play_btn
+                ui.play_btn = AutoFontButton(old.text(), ui.header_frame)
+                ui.play_btn.setObjectName(old.objectName())
+                ui.play_btn.clicked.connect(old.click)
+                old.hide()
 
-            side_spacing = 10
-
-            old = ui.play_btn
-
-            ui.play_btn = AutoFontButton(old.text(), ui.header_frame)
-            ui.play_btn.setObjectName(old.objectName())
-            ui.play_btn.setFixedSize(old.size())
-            ui.play_btn.move(old.pos())
-            ui.play_btn.clicked.connect(old.click)
+            ui.play_btn.setFixedSize(120, 35)
             ui.play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             ui.play_btn.setStyleSheet("""
                     QPushButton {
                         background-color: rgba(20,20,20,20);
                         color: white;
                     }
+                    QPushButton:hover {
+                        background-color: rgba(40,40,40,40);
+                    }
                     QPushButton:checked {
                         background-color: #75bf0f;
                         color: black;
                     }
                     """)
-            old.hide()
+
+            center_x = (ui.header_frame.width() - ui.play_btn.width()) // 2
+            center_y = (ui.header_frame.height() - ui.play_btn.height()) // 2
+            ui.play_btn.move(center_x, center_y)
+            ui.play_btn.show()
+
+            side_spacing = 10
 
             separator_style = "background-color: rgba(255, 255, 255, 150);"
 
@@ -1284,6 +1286,7 @@ class UI_Modifier(BasePlugin):
             height_collapse_group.finished.connect(ui.news_page.hide)
             QTimer.singleShot(200, lambda token=token: ui.news_content.layout().setEnabled(False) if token == self._news_anim_token else None)
             QTimer.singleShot(200, lambda token=token: self.toggle_news_btn.raise_() if token == self._news_anim_token else None)
+        else:
             ui.news_page.show()
 
             ui.news_content.layout().activate()

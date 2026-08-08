@@ -15,7 +15,7 @@ from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDa
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGridLayout, QLabel, \
     QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, \
-    QGraphicsScene, QApplication
+    QGraphicsScene, QApplication, QMenu
 from .constants import MODRINTH_TAB_INDEX
 from .constants import MODRINTH_TAB_INDEX, PLUGINS_ICON_CACHE
 from .utilties import *
@@ -31,7 +31,8 @@ class MarketIconLoader(QtCore.QRunnable):
         self.signals = MarketIconSignals()
 
     def run(self):
-        if not self.url: return  
+        if not self.url:
+            return
         try:
             url_hash = hashlib.md5(self.url.encode()).hexdigest()
             ext = "png"
@@ -769,20 +770,79 @@ class LauncherUI(QWidget):
 
         pfw, pfh = 240, ofh
 
-        self.play_btn = QPushButton("Играть", self)
-        self.play_btn.setGeometry(self.width() - pfw - 113, self.height() - pfh - 10, pfw, pfh)
-        self.play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor
-                                        ))
-        self.play_btn.setFont(QFont("sans-serif", 13, QFont.Weight.Bold))
-        self.play_btn.setStyleSheet("""
-            QPushButton { background-color: #45A049; color:white; border-radius:10px; }
+        self.play_container = QWidget(self)
+        self.play_container.setGeometry(self.width() - pfw - 113, self.height() - pfh - 10, pfw, pfh)
+
+        layout = QHBoxLayout(self.play_container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        main_width = int(pfw * 0.9)
+        menu_width = pfw - main_width
+        self.main_play_btn = QPushButton("Играть")
+        self.main_play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.main_play_btn.setFont(QFont("sans-serif", 13, QFont.Weight.Bold))
+        self.main_play_btn.setFixedWidth(main_width)
+        self.main_play_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+
+        self.main_play_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #45A049; 
+                color: white; 
+                border-top-left-radius: 10px; 
+                border-bottom-left-radius: 10px;
+                border-top-right-radius: 0px; 
+                border-bottom-right-radius: 0px;
+                border-right: 1px solid #358039; 
+            }
             QPushButton:hover:!disabled { background-color: #45a800; }
             QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
         """)
+
+        self.menu_btn = QPushButton("▼")
+        self.menu_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.menu_btn.setFont(QFont("sans-serif", 9, QFont.Weight.Bold))
+        self.menu_btn.setFixedWidth(menu_width)
+        self.menu_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self.menu_btn.setStyleSheet("""
+            QPushButton { 
+                background-color: #45A049; 
+                color: white; 
+                border-top-left-radius: 0px; 
+                border-bottom-left-radius: 0px;
+                border-top-right-radius: 10px; 
+                border-bottom-right-radius: 10px;
+                padding-bottom: 2px;
+            }
+            QPushButton:hover:!disabled { background-color: #45a800; }
+            QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
+            QPushButton::menu-indicator { image: none; } 
+        """)
+        self.play_menu = QMenu(self)
+        self.play_menu.setStyleSheet("""
+            QMenu { background-color: #fbac18; border: 1px solid #ccc; border-radius: 5px; color: black; }
+            QMenu::item { padding: 5px 20px 5px 20px; }
+            QMenu::item:selected { background-color: #e69500; color: black; }
+        """)
+
+        self.menu_btn.setMenu(self.play_menu)
+        layout.addWidget(self.main_play_btn)
+        layout.addWidget(self.menu_btn)
+
+        self.play_btn = self.main_play_btn
+        self.play_menu.triggered.connect(self.on_menu_item_clicked)
         self.play_btn.clicked.connect(self.play_clicked.emit)
         self.play_btn.raise_()
 
+    def on_menu_item_clicked(self, action):
+        selected_text = action.text()
 
+        if selected_text == "Режим 1":
+            print("1")
+        elif selected_text == "Режим 2":
+            print("2")
+        elif selected_text == "Настройки запуска":
+            print("3")
 
     def _create_about_card(self):
         card = QFrame()
@@ -1027,8 +1087,8 @@ class LauncherUI(QWidget):
         plugin_name = plugin.get('name')
         is_internal = plugin.get('class') and plugin['class'].__module__.startswith('scripts.internal')
         is_enabled = self.launcher.plugin_states.get(plugin_id, True)
-        already_installed = any(p['id'] == plugin_id or p['name'] == plugin_name for p in self.launcher.plugin_manager.discovered_plugins)
-        
+        already_installed = any(str(p['id']).replace("main.", "") == str(plugin_id).replace("main.", "") or p['name'] == plugin_name for p in self.launcher.plugin_manager.discovered_plugins)
+
         card_width = (self.plugins_manager_container.width() - 460) // 2  
         card = QFrame()
         card.setFixedSize(card_width, 180)
@@ -1058,38 +1118,19 @@ class LauncherUI(QWidget):
         else:  
             icon_lbl.setStyleSheet("background-color: #444; border-radius: 20px;")
         header.addWidget(icon_lbl)
-        
+
+        if len(plugin['name']) > 32:
+            plugin['name'] = plugin['name'][:32]
+
+        if len(plugin['description']) > 90:
+            plugin['description'] = plugin['description'][:90]
+
         name_lbl = QLabel(f"<b>{plugin['name']}</b>")
         name_lbl.setStyleSheet("color: white; font-size: 17px; background: transparent;")
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignBottom)
         name_lbl.setWordWrap(True)
         header.addWidget(name_lbl, 1)  
-        
-        if self.plugin_market_view:
-            toggle = QPushButton(t(self.lang, "btn_install"))
-            toggle.setFixedSize(80, 30)
-            toggle.setStyleSheet("background: #45A049; color: white; border-radius: 5px;")
-            if already_installed:
-                toggle.setText(t(self.lang, "btn_installed"))
-                toggle.setEnabled(False)
-                toggle.setStyleSheet("background: #555; color: #888; border-radius: 5px;")
-            else:
-                toggle.clicked.connect(lambda _, p=plugin, b=toggle: self._install_plugin(p, b))
-            header.addWidget(toggle)
-        else:
-            update_available = plugin.get('update_available', False)
-            if update_available:
-                update_btn = QPushButton(t(self.lang, "btn_update").format(v=plugin['latest_version']))
-                update_btn.setFixedHeight(30)
-                update_btn.setStyleSheet("background: #0288d1; color: white; border-radius: 5px; font-weight: bold;")
-                update_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-                update_btn.clicked.connect(lambda _, p=plugin, b=update_btn: self._update_plugin(p, b))
-                header.addWidget(update_btn)
-            else:
-                toggle = SwitchButton()
-                toggle.setChecked(is_enabled)
-                toggle.stateChanged.connect(lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))
-                header.addWidget(toggle)
+
         lay.addLayout(header)
         
         desc_lbl = QLabel(plugin['description'])
@@ -1103,12 +1144,40 @@ class LauncherUI(QWidget):
         meta_lbl.setStyleSheet("color: #777; font-size: 10px; background: transparent;")
         is_essential = getattr(plugin.get('class'), 'is_essential', False)
         footer.addWidget(meta_lbl)
+        if self.plugin_market_view:
+            toggle = QPushButton(t(self.lang, "btn_install"))
+            toggle.setFixedSize(80, 30)
+            toggle.setStyleSheet("background: #45A049; color: white; border-radius: 5px;")
+            if already_installed:
+                toggle.setText(t(self.lang, "btn_installed"))
+                toggle.setEnabled(False)
+                toggle.setStyleSheet("background: #555; color: #888; border-radius: 5px;")
+            else:
+                toggle.clicked.connect(lambda _, p=plugin, b=toggle: self._install_plugin(p, b))
+            footer.addWidget(toggle)
+        else:
+            toggle = SwitchButton()
+            toggle.setChecked(is_enabled)
+            toggle.setStyleSheet(new_switch_style)
+            toggle.stateChanged.connect(
+                lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))
+            footer.addWidget(toggle)
+
         if not self.plugin_market_view and not is_internal and not is_essential:
             footer.addStretch()
+            update_available = plugin.get('update_available', False)
+            if update_available:
+                update_btn = QPushButton(t(self.lang, "btn_update"))
+                update_btn.setFixedSize(60, 26)
+                update_btn.setStyleSheet("background: #0288d1; color: white; border-radius: 5px; font-weight: bold;")
+                update_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                update_btn.clicked.connect(lambda _, p=plugin, b=update_btn: self._update_plugin(p, b))
+                footer.addWidget(update_btn)
+
             del_btn = QPushButton(t(self.lang, "btn_delete_plugin"))
-            del_btn.setFixedSize(70, 22)
+            del_btn.setFixedSize(50, 26)
             del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            del_btn.setStyleSheet("background: #d32f2f; color: white; border-radius: 4px; font-size: 10px; font-weight: bold;")
+            del_btn.setStyleSheet("background: #d32f2f; color: white; border-radius: 4px; font-weight: bold;")
             del_btn.clicked.connect(lambda _, pid=plugin_id: self._delete_plugin(pid))
             footer.addWidget(del_btn)
         lay.addLayout(footer)
@@ -1891,6 +1960,7 @@ class LauncherUI(QWidget):
 
             self.ping_frame.setVisible(index == 0 or is_cs2_theme)
             self.play_btn.setVisible(index == 0 or is_cs2_theme)
+            self.menu_btn.setVisible(index == 0 or is_cs2_theme)
             self.online_frame.setVisible(index == 0 or is_cs2_theme)
             self.buttons_block.setVisible(index == 0)
 
@@ -2163,6 +2233,7 @@ class LauncherUI(QWidget):
 
     def set_play_enabled(self, yes: bool):
         self.play_btn.setEnabled(yes)
+        self.menu_btn.setEnabled(yes)
 
     def update_online_label(self, text):
         self.online_label.setText(text)

@@ -95,15 +95,30 @@ new_btn_style = """
                     """
 
 old_play_btn_style = """
-            QPushButton { background-color: #45A049; color:white; border-radius:10px; }
+           QPushButton { 
+                background-color: #45A049; 
+                color: white; 
+                border-top-left-radius: 10px; 
+                border-bottom-left-radius: 10px;
+                border-top-right-radius: 0px; 
+                border-bottom-right-radius: 0px;
+                border-right: 1px solid #358039; 
+            }
             QPushButton:hover:!disabled { background-color: #45a800; }
             QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
         """
 
 new_play_btn_style = """
-            QPushButton { background-color: #fbac18; color:white; border-radius:10px; }
+            QPushButton { background-color: #fbac18; color:white; border-top-left-radius: 10px; border-bottom-left-radius: 10px; border-top-right-radius: 0px;  border-bottom-right-radius: 0px; }
             QPushButton:hover:!disabled { background-color: #e69500; }
             QPushButton:disabled { background-color:#b36f00; color:#aaa; }
+        """
+
+new_play_menu_btn_style = """
+            QPushButton { background-color: #fbac18; color:white; border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 10px;  border-bottom-right-radius: 10px; border-left: 2px solid #e69500; text-align: center;}
+            QPushButton:hover:!disabled { background-color: #e69500; }
+            QPushButton:disabled { background-color:#b36f00; color:#aaa; }
+            QPushButton::menu-indicator { image: none; width: 0px; padding: 0px;} 
         """
 
 old_switch_style = "#45A049"
