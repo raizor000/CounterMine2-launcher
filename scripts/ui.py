@@ -824,9 +824,6 @@ class LauncherUI(QWidget):
             QMenu::item { padding: 5px 20px 5px 20px; }
             QMenu::item:selected { background-color: #e69500; color: black; }
         """)
-        self.play_menu.addAction("Режим 1")
-        self.play_menu.addAction("Режим 2")
-        self.play_menu.addAction("Настройки запуска")
 
         self.menu_btn.setMenu(self.play_menu)
         layout.addWidget(self.main_play_btn)
