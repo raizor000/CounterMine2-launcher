@@ -583,7 +583,7 @@ class NewsToggleButton(QtWidgets.QPushButton):
         painter.rotate(self._angle)
         painter.scale(self._scale, self._scale)
         painter.translate(-cx, -cy)
-        opacity = 35 if self.underMouse() else 15
+        opacity = 120 if self.underMouse() else 70
         painter.setBrush(QtGui.QColor(255, 255, 255, opacity))
         painter.setPen(QtCore.Qt.PenStyle.NoPen)
         painter.drawEllipse(self.rect().adjusted(1, 1, -1, -1))
