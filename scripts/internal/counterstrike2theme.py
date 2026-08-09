@@ -643,7 +643,7 @@ class AutoFontButton(QPushButton):
         super().resizeEvent(event)
         fit_button_font(self)
 
-class UI_Modifier(BasePlugin):
+class CounterStrike2Theme(BasePlugin):
     name = "Counter-Strike 2 theme"
     description = "Плагин для изменения внешнего вида лаунчера под Counter-Strike 2"
     version = "1.0.0"
@@ -1067,26 +1067,58 @@ class UI_Modifier(BasePlugin):
                 ui.play_btn.clicked.connect(old.click)
                 old.hide()
 
-            ui.play_btn.setFixedSize(120, 35)
+            ui.play_btn.setFixedSize(100, 35)
             ui.play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             ui.play_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: rgba(20,20,20,20);
+                        background-color: rgba(20,20,20,100);
                         color: white;
+                        border-top-left-radius: 4px; border-bottom-left-radius: 4px; border-top-right-radius: 0px;  border-bottom-right-radius: 0px;
                     }
                     QPushButton:hover {
-                        background-color: rgba(40,40,40,40);
+                        background-color: rgba(20,20,20,140);
                     }
                     QPushButton:checked {
                         background-color: #75bf0f;
-                        color: black;
+                        color: white;
                     }
                     """)
 
             center_x = (ui.header_frame.width() - ui.play_btn.width()) // 2
             center_y = (ui.header_frame.height() - ui.play_btn.height()) // 2
+
             ui.play_btn.move(center_x, center_y)
             ui.play_btn.show()
+
+            ui.menu_btn.setParent(ui.header_frame)
+            ui.menu_btn.setFixedSize(20, 35)
+            ui.menu_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(20,20,20,100);
+                        color: white;
+                        border-top-left-radius: 0px; border-bottom-left-radius: 0px; border-top-right-radius: 4px;  border-bottom-right-radius: 4px; border-left: 3px solid rgba(20,20,20,140); text-align: center;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(20,20,20,140);
+                    }
+                    QPushButton:checked {
+                        background-color: #75bf0f;
+                        color: white;
+                    }
+                    QPushButton::menu-indicator { image: none; width: 0px; padding: 0px;} 
+                    """)
+            ui.menu_btn.pressed.connect(ui.menu_btn.showMenu)
+            ui.menu_btn.move(ui.play_btn.x() +ui.play_btn.width(), center_y)
+            ui.menu_btn.show()
+
+            ui.play_menu.setStyleSheet("""
+                        QMenu { background-color: rgba(20,20,20,140); border: 1px solid #ccc; border-radius: 5px; color: white; font-weight: bold; }
+                        QMenu::item { padding: 5px 20px 5px 20px; }
+                        QMenu::item:selected { background-color: rgba(20,20,20,180); color: white; }
+                        QMenu::item:checked { color: #2E7D32; }
+                    """)
+
+            print(ui.play_btn.x(), ui.menu_btn.x())
 
             side_spacing = 10
 
@@ -1098,7 +1130,7 @@ class UI_Modifier(BasePlugin):
                     ui.tabs_layout.removeWidget(i_btn)
                 i_btn.setParent(ui.header_frame)
                 i_btn.setFixedSize(90, 30)
-                i_btn_x = center_x + ui.play_btn.width() + side_spacing
+                i_btn_x = center_x + ui.play_btn.width() + ui.menu_btn.width() + side_spacing
                 i_btn_y = (ui.header_frame.height() - i_btn.height()) // 2
                 i_btn.move(i_btn_x, i_btn_y)
                 i_btn.setStyleSheet(ui.play_btn.styleSheet())
@@ -1108,6 +1140,13 @@ class UI_Modifier(BasePlugin):
                     self.right_separator.setFrameShape(QtWidgets.QFrame.Shape.VLine)
                     self.right_separator.setStyleSheet(separator_style)
                     self.right_separator.setGeometry(i_btn.x() + i_btn.width() + side_spacing,
+                                                     (ui.header_frame.height() - 20) // 2, 1, 20)
+
+                if not hasattr(self, 'right_separator2'):
+                    self.right_separator2 = QtWidgets.QFrame(ui.header_frame)
+                    self.right_separator2.setFrameShape(QtWidgets.QFrame.Shape.VLine)
+                    self.right_separator2.setStyleSheet(separator_style)
+                    self.right_separator2.setGeometry(i_btn.x() - side_spacing // 2,
                                                      (ui.header_frame.height() - 20) // 2, 1, 20)
 
             if hasattr(ui, 'modrinth_plugin_tab_btn') and ui.modrinth_plugin_tab_btn:
@@ -1123,6 +1162,11 @@ class UI_Modifier(BasePlugin):
                 m_btn.move(m_btn_x, m_btn_y)
 
                 m_btn.setStyleSheet(ui.play_btn.styleSheet())
+                if not hasattr(self, 'left_separator2'):
+                    self.left_separator2 = QtWidgets.QFrame(ui.header_frame)
+                    self.left_separator2.setFrameShape(QtWidgets.QFrame.Shape.VLine)
+                    self.left_separator2.setStyleSheet(separator_style)
+                    self.left_separator2.setGeometry(m_btn.x() + m_btn.width() + side_spacing//2, (ui.header_frame.height() - 20) // 2, 1, 20)
 
                 if not hasattr(self, 'left_separator'):
                     self.left_separator = QtWidgets.QFrame(ui.header_frame)
