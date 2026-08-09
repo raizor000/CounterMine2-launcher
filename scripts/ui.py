@@ -11,14 +11,62 @@ import zipfile
 
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF, Qt
+from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF, Qt, QPropertyAnimation, \
+    QParallelAnimationGroup, QEasingCurve
 from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDatabase, QPalette, QCursor, QActionGroup
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGridLayout, QLabel, \
     QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, \
-    QGraphicsScene, QApplication, QMenu
+    QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, QGraphicsOpacityEffect, \
+    QGraphicsScene, QApplication, QMenu, QMessageBox
 from .constants import MODRINTH_TAB_INDEX
 from .constants import MODRINTH_TAB_INDEX, PLUGINS_ICON_CACHE
 from .utilties import *
+
+class HoverMenu(QMenu):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setMouseTracking(True)
+
+    def mouseMoveEvent(self, event):
+        action = self.actionAt(event.pos())
+        if action and not action.isSeparator():
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            self.unsetCursor()
+        super().mouseMoveEvent(event)
+
+class AnimatedMenu(HoverMenu):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(self.opacity_effect)
+
+        self.anim_group = QParallelAnimationGroup(self)
+
+        self.opacity_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.opacity_anim.setDuration(350)
+        self.opacity_anim.setEasingCurve(QEasingCurve.Type.InQuad)
+
+        self.pos_anim = QPropertyAnimation(self, b"pos")
+        self.pos_anim.setDuration(400)
+        self.pos_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        self.anim_group.addAnimation(self.opacity_anim)
+        self.anim_group.addAnimation(self.pos_anim)
+
+    def showEvent(self, event):
+        self.opacity_effect.setOpacity(0.0)
+        super().showEvent(event)
+
+        final_pos = self.pos()
+        start_pos = QPoint(final_pos.x(), final_pos.y() - 10)
+        self.move(start_pos)
+
+        self.pos_anim.setStartValue(start_pos); self.pos_anim.setEndValue(final_pos)
+        self.opacity_anim.setStartValue(0.0); self.opacity_anim.setEndValue(1.0)
+        self.anim_group.start()
 
 class MarketIconSignals(QObject):
     loaded = pyqtSignal(str, bytes)
@@ -501,18 +549,6 @@ class LauncherUI(QWidget):
         snow_layout.addWidget(self.snow_switch)
         card_lay2.addLayout(snow_layout)
 
-  
-        rpc_layout = QHBoxLayout()
-        self.rpc_label = QLabel(t(self.lang, "rpc_label"))
-        self.rpc_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
-        self.rpc_switch = SwitchButton()
-        self.rpc_switch.setFixedSize(52, 28)
-        rpc_layout.addWidget(self.rpc_label)
-        rpc_layout.addStretch()
-        rpc_layout.addWidget(self.rpc_switch)
-        card_lay2.addLayout(rpc_layout)
-  
-
         lang_layout = QHBoxLayout()
         self.lang_label = QLabel(t(self.lang, "lang_label"))
         self.lang_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
@@ -552,9 +588,6 @@ class LauncherUI(QWidget):
             lambda checked: self.settings_changed.emit("snow", checked)
         )
 
-        self.rpc_switch.stateChanged.connect(
-            lambda checked: self.settings_changed.emit("rpc", checked)
-        )
 
         self.debug_console_switch.stateChanged.connect(
             lambda checked: self.settings_changed.emit("debug_console", checked)
@@ -819,7 +852,8 @@ class LauncherUI(QWidget):
             QPushButton:disabled { background-color:#2e6b35; color:#aaa; }
             QPushButton::menu-indicator { image: none; } 
         """)
-        self.play_menu = QMenu("Выбор версии", self)
+
+        self.play_menu = AnimatedMenu("Выбор версии", self)
         self.play_menu.setStyleSheet("""
             QMenu { background-color: #fbac18; border: 1px solid #ccc; border-radius: 5px; color: black; font-weight: bold; }
             QMenu::item { padding: 5px 20px 5px 20px; }
@@ -828,6 +862,7 @@ class LauncherUI(QWidget):
         """)
 
         self.menu_btn.setMenu(self.play_menu)
+        self.menu_btn.pressed.connect(self.menu_btn.showMenu)
         layout.addWidget(self.main_play_btn)
         layout.addWidget(self.menu_btn)
 
@@ -841,13 +876,17 @@ class LauncherUI(QWidget):
 
     @pyqtSlot(list)
     def fill_menu_items(self, items):
+        print(f"Filling menu items with: {items}")
         self.play_menu.clear()
         for item in items:
             action = self.play_menu.addAction(item)
             action.setCheckable(True)
+            print(f"Added menu item: {action.text()}, Checked: {action.isChecked()}")
             if item == self.launcher.selected_version:
                 action.setChecked(True)
             self.version_action_group.addAction(action)
+
+        print(f"Menu items filled: {self.version_action_group.actions()}")
 
     def on_menu_item_clicked(self, action):
         selected_text = action.text()
@@ -1309,6 +1348,14 @@ class LauncherUI(QWidget):
     def _delete_plugin(self, plugin_id):
         if self.launcher.delete_external_plugin(plugin_id):
             self._populate_plugins()
+
+        reply = QMessageBox.question(self, "Плагины",
+                                     f"Для применения изменений следующего плагина требуется перезапуск лаунчера: \n{plugin_id} \n\nПерезапустить сейчас?",
+                                     QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                                     QMessageBox.StandardButton.Cancel
+                                     )
+        if reply == QMessageBox.StandardButton.Ok:
+            self.launcher.restart()
 
     def _install_plugin(self, plugin, button):
         button.setEnabled(False)
@@ -2213,7 +2260,6 @@ class LauncherUI(QWidget):
 
         try:
             self.settings_title.setText(t(lang, "settings_title"))
-            self.rpc_label.setText(t(lang, "rpc"))
             self.snow_label.setText(t(lang, "snow_label"))
             self.debug_console_label.setText(t(lang, "debug_console"))
             self.lang_label.setText(t(lang, "lang_label"))
