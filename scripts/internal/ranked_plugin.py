@@ -51,34 +51,16 @@ class QueueFetcher(QtCore.QObject):
         thread = threading.Thread(target=self._run_queue, daemon=True)
         thread.start()
         self._threads.append(thread)
-
-    def _safe_request(self, method, url, **kwargs):
-        if not self._session:
-            self._session = requests.Session()
-            self._session.headers.update({'Connection': 'close'})
-        try:
-            resp = self._session.request(method, url, **kwargs)
-            return resp
-        except Exception as e:
-            print(f"[Fetcher] Request to {url} failed: {e}. Resetting session connection pool.")
-            if self._session:
-                try:
-                    self._session.close()
-                except:
-                    pass
-                self._session = None
-            raise e
             
     def _run_queue(self):
         while not self._stop_event.is_set():
             if not self.in_game:
                 try:
-                    resp = self._safe_request(
-                        "POST",
+                    resp = requests.post(
                         QUEUE_URL,
                         json={"action": "queue5vs5"},
                         headers={'User-Agent': 'CounterMine2-Launcher/5.0'},
-                        timeout=5
+                        timeout=3
                     )
 
                     if resp.status_code == 200:
@@ -204,7 +186,7 @@ class RankedPlugin(BasePlugin):
         self.waitlist.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.waitlist.setStyleSheet("""
             QWidget {
-                background-color: rgba(40, 40, 40, 100);
+                background-color: rgba(40, 40, 40, 140);
                 border-radius: 10px;
                 border: 1px solid rgba(255, 255, 255, 40);
             }
@@ -222,7 +204,7 @@ class RankedPlugin(BasePlugin):
         header_layout.addWidget(self.faceit_title_label)
         header_layout.addStretch()
 
-        self.toggle_faceit_btn = RankedToggleButton("−", self.waitlist) # Symbol, no translation needed
+        self.toggle_faceit_btn = RankedToggleButton("−", self.waitlist) 
         self.toggle_faceit_btn.setFixedSize(28, 28)
         self.toggle_faceit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         header_layout.addWidget(self.toggle_faceit_btn)
@@ -232,7 +214,7 @@ class RankedPlugin(BasePlugin):
         self.faceit_content.setStyleSheet("background: transparent; border: 0px;")
         faceit_content_layout = QVBoxLayout(self.faceit_content)
         
-        self.queue_label = QLabel(self.get_queue_string(0, 10)) # This is dynamic, will be updated by update_ui_elements
+        self.queue_label = QLabel(self.get_queue_string(0, 10)) 
         self.queue_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.queue_label.setStyleSheet("font-size: 13pt; letter-spacing: -1px;")
         faceit_content_layout.addWidget(self.queue_label)
@@ -242,7 +224,7 @@ class RankedPlugin(BasePlugin):
         self.names_label.setTextFormat(Qt.TextFormat.RichText)
         faceit_content_layout.addWidget(self.names_label)
 
-        self.counter_label = QLabel() # This is dynamic, will be updated by update_ui_elements
+        self.counter_label = QLabel() 
         self.counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.counter_label.setStyleSheet("color: #aaaaaa; font-size: 10pt;")
         faceit_content_layout.addWidget(self.counter_label)
@@ -277,7 +259,7 @@ class RankedPlugin(BasePlugin):
             self.faceit_title_label.setText(t(lang, "ranked_queue_title"))
         if hasattr(self, 'sound_label'):
             self.sound_label.setText(t(lang, "ranked_sound_notification"))
-        self.fetcher.fetch_queue_async() # Re-fetch to update dynamic labels
+        self.fetcher.fetch_queue_async() 
 
     def add_sound_setting(self):
         ui = self.app.ui
@@ -384,7 +366,7 @@ class RankedPlugin(BasePlugin):
             occupied = 0
             names = []
             self.counter_label.setText("")
-            self.queue_label.setText("Не удалось получить информацию")
+            self.queue_label.setText("Не удалось получить информацию с сервера")
             
         if occupied == 0 and len(self.last_queue_names) == 9 and current_user_nickname:
             was_in_queue = any(
