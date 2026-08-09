@@ -473,7 +473,8 @@ class ModrinthPlugin(BasePlugin):
                 pass
 
     def on_external_action(self, slug, action):
-        if action == "remove": self.perform_action(slug, "remove")
+        if action == "remove":
+            self.perform_action(slug, "remove")
 
     def perform_action(self, slug, action):
         threading.Thread(target=self._run_action, args=(slug, action), daemon=True).start()
