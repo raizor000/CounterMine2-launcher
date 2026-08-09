@@ -39,8 +39,8 @@ from .constants import *
 from .translations import translations
 
 
-def is_mod_installed(mc_dir: str, slug: str) -> bool:
-    mods_dir = os.path.join(mc_dir, "mods")
+def is_mod_installed(mc_dir: str, slug: str, version: str) -> bool:
+    mods_dir = os.path.join(mc_dir, "mods", version)
     if os.path.exists(mods_dir):
         for file in os.listdir(mods_dir):
             if file.endswith('.jar') and (slug.lower() in file.lower()):

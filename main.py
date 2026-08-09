@@ -452,7 +452,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.console_window.hide()
 
             elif key == "plugin_state":
-                plugin_id, enabled = value
+                plugin_id, enabled, restart_required = value
 
                 if enabled:
                     if plugin_id == "ModrinthPlugin":
@@ -464,9 +464,18 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.save_settings()
                 self.ui._populate_plugins()
                 action = "включен" if enabled else "выключен"
-                self.write_log(f"[Плагины] {plugin_id} {action}. Требуется перезапуск.")
-                QMessageBox.information(self, "Плагины",
-                                        "Для применения изменений (включения/выключения) плагинов требуется перезапуск лаунчера.")
+                if restart_required or not enabled:
+                    self.write_log(f"[Плагины] {plugin_id} {action}. Требуется перезапуск.")
+                    reply = QMessageBox.question(self, "Плагины",
+                                            f"Для применения изменений следующего плагина требуется перезапуск лаунчера: \n{plugin_id} \n\nПерезапустить сейчас?",
+                                         QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                                         QMessageBox.StandardButton.Cancel
+                                         )
+                    if reply == QMessageBox.StandardButton.Ok:
+                        self.restart()
+                else:
+                    self.plugin_manager.load_plugins()
+                    self.write_log(f"[Плагины] Processed plugin without restart ({plugin_id})")
         except Exception as e:
             self.write_error(f"[Настройки] Ошибка при изменении '{key}': {str(e)}")
 
@@ -495,7 +504,8 @@ class LauncherApp(QtWidgets.QMainWindow):
             "snow": self.show_snow,
             "new_style": self.new_style,
             "plugin_states": self.plugin_states,
-            "show_debug_console": self.show_debug_console
+            "show_debug_console": self.show_debug_console,
+            "selected_version": self.selected_version
         }
         try:
             with open(LAUNCHER_DIR / "settings.json", "w", encoding="utf-8") as f:
@@ -530,6 +540,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 sound = data.get("sound_enabled", True)
                 self.plugin_states = data.get("plugin_states", {})
                 self.show_debug_console = data.get("show_debug_console", False)
+                self.selected_version = data.get("selected_version", VERSION)
 
                 if "ModrinthPlugin" not in self.plugin_states and "CurseForgePlugin" not in self.plugin_states:
                     self.plugin_states["ModrinthPlugin"] = True
@@ -558,6 +569,8 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.discord_rpc = rpc
                 self.ui.debug_console_switch.setChecked(self.show_debug_console)
                 self.ui.lang_dropdown.current = "Русский" if self.lang == "ru_ru" else "English"
+
+                self._swap_mods(self.selected_version, "")
 
 
 
@@ -595,9 +608,45 @@ class LauncherApp(QtWidgets.QMainWindow):
         if self.ui.plugins_manager_container.isVisible() and not self.ui.plugin_market_view:
             self.ui._populate_plugins()
 
+    def _swap_mods(self, new_version: str, old_version: str):
+        """Clears the root mods folder and copies mods from the new_version subfolder."""
+        self.write_log(f"Syncing active mods for version {new_version}...")
+
+        root_mods_dir = MC_DIR / "mods"
+        new_version_dir = root_mods_dir / new_version
+
+        root_mods_dir.mkdir(exist_ok=True)
+        new_version_dir.mkdir(exist_ok=True)
+
+        # 1. Clear all .jar files from the root mods directory.
+        # Be careful not to delete the version subdirectories.
+        for item in root_mods_dir.iterdir():
+            if item.is_file() and item.suffix == '.jar':
+                try:
+                    item.unlink()
+                except Exception as e:
+                    self.write_error(f"Failed to remove active mod {item.name}: {e}")
+
+        # 2. Copy mods from the new version's directory to the root mods directory.
+        for item in new_version_dir.iterdir():
+            if item.is_file() and item.suffix == '.jar':
+                try:
+                    shutil.copy(str(item), str(root_mods_dir))
+                except Exception as e:
+                    self.write_error(f"Failed to copy mod {item.name} to active directory: {e}")
+
+        self.write_log("Mod sync complete.")
+
     def on_version_selected(self, version_id: str):
         self.write_log(f"Выбрана версия для запуска: {version_id}")
+        old_version = self.selected_version
         self.selected_version = version_id
+        self.save_settings()
+        self._swap_mods(new_version=version_id, old_version=old_version)
+        self.ui.refresh_installed_mods_display()
+        for plugin in self.plugin_manager.plugins:
+            if hasattr(plugin, 'refresh_signal'):
+                plugin.refresh_signal.emit()
 
     def update_rpc(self, enable=True):
         if enable:
@@ -684,12 +733,16 @@ class LauncherApp(QtWidgets.QMainWindow):
             threading.Thread(target=process_delete, daemon=True).start()
 
     def open_game_directory(self):
-        subprocess.Popen(['explorer.exe', str(MC_DIR)])
+        if sys.platform == "win32":
+            subprocess.Popen(['explorer.exe', str(MC_DIR)])
+        else:
+            subprocess.Popen(['open', str(MC_DIR)])
 
     def handle_mod_action(self, mod_slug: str, action: str):
         try:
             self.write_log(f"Действие: {action} для мода {mod_slug}")
-            mods_dir_path = os.path.join(str(MC_DIR), "mods")
+            mods_dir_path = os.path.join(str(MC_DIR), "mods", self.selected_version)
+            os.makedirs(mods_dir_path, exist_ok=True)
             removed = 0
             exact_path = os.path.join(mods_dir_path, mod_slug)
             if os.path.exists(exact_path):
@@ -705,6 +758,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                         removed += 1
             if removed > 0:
                 self.write_log(f"Удалено {removed} файлов для мода {mod_slug}")
+                self._swap_mods(self.selected_version, self.selected_version)
             else:
                 self.write_log(f"Файлы для мода {mod_slug} не найдены")
 
@@ -843,7 +897,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             def progress_callback(progress):
                 self.ui.play_btn.setText(f"{t(self.lang, 'install_status')} {progress}")
 
-            # Add servers to server list
             servers_to_add = [
                 {"name": "Counter-Mine 2", "ip": "direct.cherry.pizza"},
                 {"name": "Counter-Mine 2 (резерв)", "ip": "auth-tcpshield.cherry.pizza"}

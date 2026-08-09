@@ -17,9 +17,9 @@ from scripts.utilties import t, is_mod_installed, SmoothScrollArea
 class ModSearchWorker(QObject):
     finished = pyqtSignal(list, bool, bool) 
 
-    def __init__(self, query, index, offset=0, append=False):
+    def __init__(self, query, index, version, offset=0, append=False):
         super().__init__()
-        self.query, self.index, self.offset, self.append = query, index, offset, append
+        self.query, self.index, self.version, self.offset, self.append = query, index, version, offset, append
         self._stop = False
 
     def stop(self): self._stop = True
@@ -27,7 +27,7 @@ class ModSearchWorker(QObject):
     def run(self):
         try:
             limit = 51
-            facets = f'[["project_type:mod"],["categories:fabric"],["versions:{VERSION}"]]'
+            facets = f'[["project_type:mod"],["categories:fabric"],["versions:{self.version}"]]'
             url = f"https://api.modrinth.com/v2/search?query={urllib.parse.quote(self.query)}&facets={urllib.parse.quote(facets)}&limit={limit}&offset={self.offset}&index={self.index}"
             
             headers = {'User-Agent': 'CounterMine2-Launcher/5.0'}
@@ -324,7 +324,7 @@ class ModrinthPlugin(BasePlugin):
         self.spinner_movie.start()
 
         query = self.search_edit.text()
-        self.worker = ModSearchWorker(query, "relevance" if query else "downloads", self.current_offset, append)
+        self.worker = ModSearchWorker(query, "relevance" if query else "downloads", self.app.selected_version, self.current_offset, append)
         self.thread = QThread() 
         thread_pair = (self.thread, self.worker)
         self._active_threads.append(thread_pair)
@@ -405,7 +405,7 @@ class ModrinthPlugin(BasePlugin):
 
         for i, mod in enumerate(mods_to_add):
             real_idx = start_idx + i
-            is_inst = is_mod_installed(str(MC_DIR), mod["slug"])
+            is_inst = is_mod_installed(str(MC_DIR), mod["slug"], self.app.selected_version)
             card = QFrame() 
             card.setFixedSize(card_w, card_h)
             card.setStyleSheet("background-color: #555; border-radius: 10px;")
@@ -480,9 +480,11 @@ class ModrinthPlugin(BasePlugin):
 
     def _run_action(self, slug, action):
         try:
-            mods_dir = MC_DIR / "mods"
+            versioned_mods_dir = MC_DIR / "mods" / self.app.selected_version
+            versioned_mods_dir.mkdir(parents=True, exist_ok=True)
+
             if action == "install": 
-                url = f"https://api.modrinth.com/v2/project/{slug}/version?loaders=[\"fabric\"]&game_versions=[\"{VERSION}\"]"
+                url = f"https://api.modrinth.com/v2/project/{slug}/version?loaders=[\"fabric\"]&game_versions=[\"{self.app.selected_version}\"]"
                 
                 response = requests.get(url, timeout=5)
                 response.raise_for_status()
@@ -491,13 +493,14 @@ class ModrinthPlugin(BasePlugin):
                 
                 with requests.get(file_info['url'], stream=True, timeout=10) as r:
                     r.raise_for_status()
-                    with open(mods_dir / file_info['filename'], "wb") as mod_file:
+                    with open(versioned_mods_dir / file_info['filename'], "wb") as mod_file:
                         for chunk in r.iter_content(chunk_size=8192):
                             mod_file.write(chunk)
             else:
-                for f in os.listdir(mods_dir):
-                    if slug in f.lower(): os.remove(mods_dir / f)
+                for f in os.listdir(versioned_mods_dir):
+                    if slug in f.lower(): os.remove(versioned_mods_dir / f)
             self.app.ui.installed_mods_dirty = True
+            self.app._swap_mods(self.app.selected_version, self.app.selected_version)
             self.refresh_signal.emit()
             QtCore.QMetaObject.invokeMethod(self.app.ui, "refresh_installed_mods_display", Qt.ConnectionType.QueuedConnection)
         except requests.exceptions.RequestException as e:

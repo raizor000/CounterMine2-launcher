@@ -10,8 +10,8 @@ import zipfile
 
 
 from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF
-from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDatabase, QPalette
+from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF, Qt
+from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDatabase, QPalette, QCursor, QActionGroup
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGridLayout, QLabel, \
     QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, \
@@ -821,9 +821,10 @@ class LauncherUI(QWidget):
         """)
         self.play_menu = QMenu("Выбор версии", self)
         self.play_menu.setStyleSheet("""
-            QMenu { background-color: #fbac18; border: 1px solid #ccc; border-radius: 5px; color: black; }
+            QMenu { background-color: #fbac18; border: 1px solid #ccc; border-radius: 5px; color: black; font-weight: bold; }
             QMenu::item { padding: 5px 20px 5px 20px; }
             QMenu::item:selected { background-color: #e69500; color: black; }
+            QMenu::item:checked { color: #2E7D32; }
         """)
 
         self.menu_btn.setMenu(self.play_menu)
@@ -831,15 +832,22 @@ class LauncherUI(QWidget):
         layout.addWidget(self.menu_btn)
 
         self.play_btn = self.main_play_btn
-        self.play_menu.triggered.connect(self.on_menu_item_clicked)
         self.play_btn.clicked.connect(self.play_clicked.emit)
         self.play_btn.raise_()
+
+        self.version_action_group = QActionGroup(self)
+        self.version_action_group.setExclusive(True)
+        self.play_menu.triggered.connect(self.on_menu_item_clicked)
 
     @pyqtSlot(list)
     def fill_menu_items(self, items):
         self.play_menu.clear()
         for item in items:
-            self.play_menu.addAction(item)
+            action = self.play_menu.addAction(item)
+            action.setCheckable(True)
+            if item == self.launcher.selected_version:
+                action.setChecked(True)
+            self.version_action_group.addAction(action)
 
     def on_menu_item_clicked(self, action):
         selected_text = action.text()
@@ -1144,6 +1152,7 @@ class LauncherUI(QWidget):
         meta_lbl = QLabel(f"v{plugin['version']} | {plugin['author']}")
         meta_lbl.setStyleSheet("color: #777; font-size: 10px; background: transparent;")
         is_essential = getattr(plugin.get('class'), 'is_essential', False)
+        restart_req = getattr(plugin, 'restart_req', False)
         footer.addWidget(meta_lbl)
         if self.plugin_market_view:
             toggle = QPushButton(t(self.lang, "btn_install"))
@@ -1159,9 +1168,9 @@ class LauncherUI(QWidget):
         else:
             toggle = SwitchButton()
             toggle.setChecked(is_enabled)
-            toggle.setStyleSheet(new_switch_style)
+            toggle.setOnColor(old_switch_style)
             toggle.stateChanged.connect(
-                lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked)))
+                lambda checked, pid=plugin_id: self.settings_changed.emit("plugin_state", (pid, checked, restart_req)))
             footer.addWidget(toggle)
 
         if not self.plugin_market_view and not is_internal and not is_essential:
@@ -1995,9 +2004,10 @@ class LauncherUI(QWidget):
             elif index == 3: 
                 self.installed_mods_container.setVisible(True)
                 self._animate_container(self.installed_mods_container)
-                self._populate_installed_mods()
-                self.installed_mods_initialized = True
-                self.installed_mods_dirty = False
+                if self.installed_mods_dirty or not self.installed_mods_initialized:
+                    self._populate_installed_mods()
+                    self.installed_mods_initialized = True
+                    self.installed_mods_dirty = False
                 self.installed_mods_container.raise_()
                 self.installed_mods_content.raise_()
             elif index == 2: 
@@ -2017,7 +2027,9 @@ class LauncherUI(QWidget):
     def _get_installed_mods(self):
         installed_items = []
 
-        mods_dir = os.path.join(MC_DIR, "mods")
+        mods_dir = os.path.join(MC_DIR, "mods", self.launcher.selected_version)
+        os.makedirs(mods_dir, exist_ok=True)
+
         if os.path.exists(mods_dir):
             for file in os.listdir(mods_dir):
                 if file.endswith('.jar'):
@@ -2175,6 +2187,7 @@ class LauncherUI(QWidget):
 
     @pyqtSlot()
     def refresh_installed_mods_display(self):
+        self.installed_mods_dirty = True
         if self.installed_mods_container.isVisible():
             self._populate_installed_mods()
         QtWidgets.QApplication.processEvents()

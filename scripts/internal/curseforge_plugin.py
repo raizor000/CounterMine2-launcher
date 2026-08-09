@@ -38,9 +38,9 @@ def t(lang, key):
 class CurseSearchWorker(QObject):
     finished = pyqtSignal(list, bool, bool)
 
-    def __init__(self, query, index, offset=0, append=False):
+    def __init__(self, query, index, version, offset=0, append=False):
         super().__init__()
-        self.query, self.index, self.offset, self.append = query, index, offset, append
+        self.query, self.index, self.version, self.offset, self.append = query, index, version, offset, append
         self._stop = False
 
     def stop(self): self._stop = True
@@ -49,7 +49,7 @@ class CurseSearchWorker(QObject):
         try:
             limit = 33  
             sort_field = 6 if self.query else 2
-            url = f"https://mod.mcimirror.top/curseforge/v1/mods/search?gameId=432&classId=6&modLoaderType=4&gameVersion={VERSION}&searchFilter={urllib.parse.quote(self.query)}&index={self.offset}&pageSize={limit}&sortField={sort_field}"
+            url = f"https://mod.mcimirror.top/curseforge/v1/mods/search?gameId=432&classId=6&modLoaderType=4&gameVersion={self.version}&searchFilter={urllib.parse.quote(self.query)}&index={self.offset}&pageSize={limit}&sortField={sort_field}"
             
             headers = {'Accept': 'application/json'}
             response = requests.get(url, headers=headers, timeout=5)
@@ -296,7 +296,7 @@ class CurseForgePlugin(BasePlugin):
 
         self.loading_overlay.show(); self.spinner_movie.start()
         query = self.search_edit.text()
-        self.worker = CurseSearchWorker(query, 0, self.current_offset, append)
+        self.worker = CurseSearchWorker(query, 0, self.app.selected_version, self.current_offset, append)
         self.thread = QThread()
         self._active_threads.append((self.thread, self.worker))
         self.worker.moveToThread(self.thread)
@@ -338,7 +338,7 @@ class CurseForgePlugin(BasePlugin):
 
         for i, mod in enumerate(mods_to_add):
             idx = start_idx + i
-            is_inst = is_mod_installed(str(MC_DIR), mod["slug"])
+            is_inst = is_mod_installed(str(MC_DIR), mod["slug"], self.app.selected_version)
             card = QFrame()  
             card.setFixedSize(card_w, card_h)
             card.setStyleSheet("background-color: #555; border-radius: 10px;")
@@ -388,9 +388,11 @@ class CurseForgePlugin(BasePlugin):
 
     def _run_action(self, slug, mod_id, action):
         try:
-            mods_dir = MC_DIR / "mods"
+            versioned_mods_dir = MC_DIR / "mods" / self.app.selected_version
+            versioned_mods_dir.mkdir(parents=True, exist_ok=True)
+
             if action == "install":  
-                url = f"https://mod.mcimirror.top/curseforge/v1/mods/{mod_id}/files?gameVersion={VERSION}&modLoaderType=4"
+                url = f"https://mod.mcimirror.top/curseforge/v1/mods/{mod_id}/files?gameVersion={self.app.selected_version}&modLoaderType=4"
                 resp = requests.get(url, timeout=10).json()
                 
                 if 'data' not in resp or not resp['data']:
@@ -414,13 +416,14 @@ class CurseForgePlugin(BasePlugin):
 
                 r = requests.get(d_url, stream=True, timeout=30)
                 r.raise_for_status()
-                with open(mods_dir / f_name, "wb") as f:
+                with open(versioned_mods_dir / f_name, "wb") as f:
                     for chunk in r.iter_content(8192): f.write(chunk)
             else:
-                for f in os.listdir(mods_dir):
-                    if slug in f.lower(): os.remove(mods_dir / f)
+                for f in os.listdir(versioned_mods_dir):
+                    if slug in f.lower(): os.remove(versioned_mods_dir / f)
             
             self.app.ui.installed_mods_dirty = True
+            self.app._swap_mods(self.app.selected_version, self.app.selected_version)
             self.refresh_signal.emit()
             QtCore.QMetaObject.invokeMethod(self.app.ui, "refresh_installed_mods_display", Qt.ConnectionType.QueuedConnection)
         except Exception as e: print(f"Action error: {e}")
