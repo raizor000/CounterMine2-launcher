@@ -141,7 +141,8 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.fetcher = Fetcher()
         self.ui = LauncherUI(LAUNCHER_VERSION, self.ip, self.lang, self)
 
-       
+        self.populate_versions_signal.connect(self.ui.fill_menu_items, QtCore.Qt.ConnectionType.QueuedConnection)
+        self.auth_update_signal.connect(self.ui.update_auth_ui, QtCore.Qt.ConnectionType.QueuedConnection)
 
         threading.Thread(target=self.load_versions, daemon=True).start()
 
@@ -178,9 +179,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.plugin_manager = PluginManager(self)
         self.plugin_manager.load_internal_plugins()
         self.plugin_manager.load_plugins()
-
-        self.populate_versions_signal.connect(self.ui.fill_menu_items, QtCore.Qt.ConnectionType.QueuedConnection)
-        self.auth_update_signal.connect(self.ui.update_auth_ui, QtCore.Qt.ConnectionType.QueuedConnection)
 
         threading.Thread(target=self._check_for_plugin_updates_async, daemon=True).start()
 
@@ -256,6 +254,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 sorted_versions = ["1.21.11"]
 
             self.write_log(f"Found {len(sorted_versions)} versions to display.")
+            print(f"Available versions: {sorted_versions}")
             self.populate_versions_signal.emit(sorted_versions)
         except Exception as e:
             self.write_error(f"Failed to get Minecraft versions: {e}")
@@ -275,7 +274,7 @@ class LauncherApp(QtWidgets.QMainWindow):
                 QMessageBox.StandardButton.Cancel
             )
             if result == QMessageBox.StandardButton.Ok:
-                self.plugin_states["UI_Modifier"] = True
+                self.plugin_states["CounterStrike2Theme"] = True
                 self.save_settings()
                 self.restart()
 
@@ -311,8 +310,8 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     @property
     def is_cs2_theme_active(self) -> bool:
-        from scripts.internal.counterstrike2theme import UI_Modifier
-        return any(isinstance(p, UI_Modifier) for p in self.plugin_manager.plugins) and sys.platform == "win32"
+        from scripts.internal.counterstrike2theme import CounterStrike2Theme
+        return any(isinstance(p, CounterStrike2Theme) for p in self.plugin_manager.plugins) and sys.platform == "win32"
 
     def register_url_protocol(self):
         if sys.platform != 'win32':
@@ -475,7 +474,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ui.plugins_btn.setStyleSheet(new_btn_style)
         self.ui.play_btn.setStyleSheet(new_play_btn_style)
         self.ui.menu_btn.setStyleSheet(new_play_menu_btn_style)
-        self.ui.rpc_switch.setOnColor(new_switch_style)
         self.ui.snow_switch.setOnColor(new_switch_style)
         self.ui.lang_dropdown.setSelectedColor(new_dropdown_style)
         self.ui.debug_console_switch.setStyleSheet(new_btn_style)
@@ -591,7 +589,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.ui._populate_plugins()
 
     def _swap_mods(self, new_version: str, old_version: str):
-        """Clears the root mods folder and copies mods from the new_version subfolder."""
         self.write_log(f"Syncing active mods for version {new_version}...")
 
         root_mods_dir = MC_DIR / "mods"
@@ -600,8 +597,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         root_mods_dir.mkdir(exist_ok=True)
         new_version_dir.mkdir(exist_ok=True)
 
-        # 1. Clear all .jar files from the root mods directory.
-        # Be careful not to delete the version subdirectories.
         for item in root_mods_dir.iterdir():
             if item.is_file() and item.suffix == '.jar':
                 try:
@@ -609,7 +604,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                 except Exception as e:
                     self.write_error(f"Failed to remove active mod {item.name}: {e}")
 
-        # 2. Copy mods from the new version's directory to the root mods directory.
         for item in new_version_dir.iterdir():
             if item.is_file() and item.suffix == '.jar':
                 try:
