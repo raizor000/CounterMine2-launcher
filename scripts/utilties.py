@@ -96,7 +96,13 @@ def is_fabric_installed(mc_path: str, vanilla_version: str) -> bool:
 
 
 def is_mc_running(pid, version_str):
-    if sys.platform == "win32":
+    if pid == -1:
+        return False
+
+    if not psutil.pid_exists(pid):
+        return False
+
+    if sys.platform == "win32" and win32gui is not None:
         found = False
 
         def callback(hwnd, _):
@@ -118,7 +124,17 @@ def is_mc_running(pid, version_str):
         win32gui.EnumWindows(callback, None)
         return found
     else:
-        return False
+        try:
+            p = psutil.Process(pid)
+            if p.status() in [psutil.STATUS_ZOMBIE]:
+                return False
+            cmdline = " ".join(p.cmdline())
+            if "net.minecraft.client.main.Main" in cmdline and version_str in cmdline:
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return False
+
+    return False
 
 
 def t(lang, key):
