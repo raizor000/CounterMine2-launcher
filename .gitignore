@@ -1,7 +1,15 @@
-/scripts/plugins/
-/scripts/internal/3D/viewer/
+scripts/plugins/
+scripts/internal/3D/viewer/
+scripts/internal/__pycache__/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .idea/*
+.idea/
+/*.spec
+dist/
+scripts/__pycache__/
+*.pyc
+*.pyo
+*.pyd
