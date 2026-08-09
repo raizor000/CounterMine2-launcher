@@ -76,7 +76,7 @@ class PluginManager:
                 "ModrinthPlugin": "modrinth_plugin",
                 "RankedPlugin": "ranked_plugin",
                 "CurseForgePlugin": "curseforge_plugin",
-                "UI_Modifier": "counterstrike2theme",
+                "CounterStrike2Theme": "counterstrike2theme",
             }
 
             internal_list = []
