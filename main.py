@@ -28,7 +28,6 @@ from PyQt6.QtGui import QMouseEvent, QGuiApplication, QPalette, QIcon, QPixmap
 from PyQt6.QtWidgets import QMessageBox, QGraphicsOpacityEffect, QProgressDialog, QPushButton
 from packaging import version
 from psutil import virtual_memory
-from pypresence import Presence
 import urllib
 from scripts.plugin_manager import PluginManager
 from scripts.auth import CherryAuth
@@ -113,20 +112,19 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.sound_enabled = True
         self.old_pos = None
         self._launching = False
+        self._running = False
         self._deleting = False
         self._installing = False
         self.remote_plugins = []
         self.maintenance_data = []
+        self.settings_data = {}
         self._update_cancelled = threading.Event()
         self.update_progress_dialog = None
         self.new_style = True
-        self.discord_rpc = True
         self.show_debug_console = False
         self.plugin_states = {}
         self.nickname = None
-        self.banned = False
         self.show_snow = True
-        self.rpc = None
         self.log_file = get_new_logfile(str(MC_DIR))
         self.lang = "ru_ru"
         self.ip = "0.0.0.0"
@@ -143,28 +141,9 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.fetcher = Fetcher()
         self.ui = LauncherUI(LAUNCHER_VERSION, self.ip, self.lang, self)
 
-        def load_versions():
-            try:
-                self.write_log("Fetching Minecraft version list...")
-                all_versions = minecraft_launcher_lib.utils.get_version_list()
-                release_versions = [v['id'] for v in all_versions if v['type'] == 'release']
+       
 
-                start_v = version.parse("1.21.11")
-
-                filtered_versions = [v for v in release_versions if version.parse(v) >= start_v]
-                sorted_versions = sorted(filtered_versions, key=version.parse, reverse=True)
-
-                if not sorted_versions:
-                    self.write_warn("Could not find versions >= 1.21.11, using fallback.")
-                    sorted_versions = ["1.21.11"]
-
-                self.write_log(f"Found {len(sorted_versions)} versions to display.")
-                self.populate_versions_signal.emit(sorted_versions)
-            except Exception as e:
-                self.write_error(f"Failed to get Minecraft versions: {e}")
-                self.populate_versions_signal.emit(["1.21.11"])
-
-        threading.Thread(target=load_versions, daemon=True).start()
+        threading.Thread(target=self.load_versions, daemon=True).start()
 
         self.load_settings()
 
@@ -247,9 +226,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.mc_timer.timeout.connect(self._check_mc_state)
         self.mc_timer.start(2000)
 
-        if self.discord_rpc:
-            threading.Thread(target=self.update_rpc, daemon=True).start()
-
         threading.Thread(target=self.auth_manager.check_auth_status, daemon=True).start()
 
         self.apply_theme()
@@ -263,6 +239,27 @@ class LauncherApp(QtWidgets.QMainWindow):
         ))
 
         QtCore.QTimer.singleShot(100, self.check_startup)
+
+    def load_versions(self):
+        try:
+            self.write_log("Fetching Minecraft version list...")
+            all_versions = minecraft_launcher_lib.utils.get_version_list()
+            release_versions = [v['id'] for v in all_versions if v['type'] == 'release']
+
+            start_v = version.parse("1.21.11")
+
+            filtered_versions = [v for v in release_versions if version.parse(v) >= start_v]
+            sorted_versions = sorted(filtered_versions, key=version.parse, reverse=True)
+
+            if not sorted_versions:
+                self.write_warn("Could not find versions >= 1.21.11, using fallback.")
+                sorted_versions = ["1.21.11"]
+
+            self.write_log(f"Found {len(sorted_versions)} versions to display.")
+            self.populate_versions_signal.emit(sorted_versions)
+        except Exception as e:
+            self.write_error(f"Failed to get Minecraft versions: {e}")
+            self.populate_versions_signal.emit(["1.21.11"])
 
     def check_startup(self):
         if not os.path.exists(Path(LAUNCHER_DIR) / "first_launch"):
@@ -434,15 +431,6 @@ class LauncherApp(QtWidgets.QMainWindow):
                     self.snow.hide()
                     self.ui.snow_switch.setChecked(bool(self.show_snow))
 
-            elif key == "rpc":
-                self.discord_rpc = bool(value)
-                if bool(value):
-                    threading.Thread(target=self.update_rpc, daemon=True).start()
-                else:
-                    threading.Thread(target=self.update_rpc, args=[False, ], daemon=True).start()
-                self.save_settings()
-
-
             elif key == "debug_console":
                 self.show_debug_console = bool(value)
                 self.save_settings()
@@ -464,18 +452,15 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.save_settings()
                 self.ui._populate_plugins()
                 action = "включен" if enabled else "выключен"
-                if restart_required or not enabled:
-                    self.write_log(f"[Плагины] {plugin_id} {action}. Требуется перезапуск.")
-                    reply = QMessageBox.question(self, "Плагины",
-                                            f"Для применения изменений следующего плагина требуется перезапуск лаунчера: \n{plugin_id} \n\nПерезапустить сейчас?",
-                                         QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
-                                         QMessageBox.StandardButton.Cancel
-                                         )
-                    if reply == QMessageBox.StandardButton.Ok:
-                        self.restart()
-                else:
-                    self.plugin_manager.load_plugins()
-                    self.write_log(f"[Плагины] Processed plugin without restart ({plugin_id})")
+                self.write_log(f"[Плагины] {plugin_id} {action}. Требуется перезапуск.")
+                reply = QMessageBox.question(self, "Плагины",
+                                        f"Для применения изменений следующего плагина требуется перезапуск лаунчера: \n{plugin_id} \n\nПерезапустить сейчас?",
+                                     QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                                     QMessageBox.StandardButton.Cancel
+                                     )
+                if reply == QMessageBox.StandardButton.Ok:
+                    self.restart()
+
         except Exception as e:
             self.write_error(f"[Настройки] Ошибка при изменении '{key}': {str(e)}")
 
@@ -500,7 +485,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             "nickname": self.nickname,
             "lang": self.lang,
             "sound_enabled": self.sound_enabled,
-            "rpc": self.discord_rpc,
             "snow": self.show_snow,
             "new_style": self.new_style,
             "plugin_states": self.plugin_states,
@@ -531,10 +515,10 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.save_settings()
 
             with open(LAUNCHER_DIR / "settings.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
+                self.settings_data = json.load(f)
+                data = self.settings_data
                 nick = data.get("nickname", "")
                 lang = data.get("lang", "ru_ru")
-                rpc = data.get("rpc", True)
                 snow = data.get("snow", True)
                 style = data.get("new_style", True)
                 sound = data.get("sound_enabled", True)
@@ -562,11 +546,9 @@ class LauncherApp(QtWidgets.QMainWindow):
                 self.lang = lang
                 self.new_style = style
                 self.fetcher.set_lang(lang)
-                self.ui.rpc_switch.setChecked(rpc)
                 if is_winter_period():
                     self.ui.snow_switch.setChecked(self.show_snow)
 
-                self.discord_rpc = rpc
                 self.ui.debug_console_switch.setChecked(self.show_debug_console)
                 self.ui.lang_dropdown.current = "Русский" if self.lang == "ru_ru" else "English"
 
@@ -647,55 +629,6 @@ class LauncherApp(QtWidgets.QMainWindow):
         for plugin in self.plugin_manager.plugins:
             if hasattr(plugin, 'refresh_signal'):
                 plugin.refresh_signal.emit()
-
-    def update_rpc(self, enable=True):
-        if enable:
-            if not self.rpc:
-                try:
-                    self.rpc = Presence("1493262434566144000")
-                    self.rpc.connect()
-                    self.rpc.update(
-                        details="CounterMine2",
-                        state=f"direct.cherry.pizza | Версия: {self.selected_version}",
-                        large_image="logo2",
-                        large_text="CounterMine2 Client",
-                        start=int(time.time()),
-                        buttons=[
-                            {"label": "Сайт", "url": "https://cherry.pizza"},
-                            {"label": "Discord", "url": "https://discord.gg/2wbp5aYZtF"},
-                            {"label": "Лаунчер", "url": "https://discord.gg/Gg2fy7VzEV"}
-                        ]
-                    )
-                    self.write_log(f"Установлена интеграция с дискордом ")
-                except Exception as e:
-                    self.rpc = None
-                    self.write_log(f"Ошибка установки RPC: {str(e)}", level="ERROR")
-
-            if self.rpc:
-                try:
-                    self.rpc.update(
-                        details="CounterMine2",
-                        state=f"direct.cherry.pizza | Версия: {self.selected_version}",
-                        large_image="logo2",
-                        large_text="CounterMine2 Client",
-                        start=int(time.time()),
-                        buttons=[
-                            {"label": "Сайт", "url": "https://cherry.pizza"},
-                            {"label": "Discord", "url": "https://discord.gg/2wbp5aYZtF"},
-                            {"label": "Лаунчер", "url": "https://discord.gg/Gg2fy7VzEV"}
-
-                        ]
-                    )
-                except Exception as e:
-                    self.rpc = None
-                    self.write_log(f"Ошибка обновления RPC: {str(e)}", level="ERROR")
-        else:
-            try:
-                if self.rpc:
-                    self.rpc.close()
-            except Exception:
-                pass
-            self.rpc = None
 
     def reinstall_client(self):
         reply = QtWidgets.QMessageBox.question(
@@ -1006,6 +939,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         running = is_mc_running(pid=self.minecraft_pid, version_str=self.selected_version)
 
         if running:
+            self._running = True
             self.fetcher.set_game(True)
             self.ui.set_play_status(t(self.lang, "in_game_status"))
             self.ui.set_play_enabled(False)
@@ -1014,13 +948,16 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.hide()
 
         elif self._launching and not self._installing:
+            self._running = False
             self.fetcher.set_game(False)
             self.ui.set_play_status(t(self.lang, "launching_status"))
             self.ui.set_play_enabled(False)
         elif self._installing and not self._launching:
+            self._running = False
             self.fetcher.set_game(False)
             self.ui.set_play_enabled(False)
         elif self._deleting and not self._launching:
+            self._running = False
             self.fetcher.set_game(False)
             self.ui.set_play_status(t(self.lang, "cleanup_status"))
             self.ui.set_play_enabled(False)
@@ -1028,6 +965,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             if self._launching or self._installing or self._deleting:
                 return
             self.fetcher.set_game(False)
+            self._running = False
             self.ui.set_play_status(t(self.lang, "play_button"))
             self.ui.set_play_enabled(True)
             if not self.isVisible():
