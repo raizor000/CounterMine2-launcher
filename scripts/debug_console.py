@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QTextCharFormat, QColor, QTextCursor, QFont, QIcon
+from scripts.translations import translations
 
 LOG_COLORS = {
     "INFO":  "#00FF00",
@@ -102,7 +103,6 @@ class DebugConsoleWindow(QtWidgets.QWidget):
         self.all_log_lines = []
 
     def update_ui(self, lang):
-        from scripts.translations import translations
         def t(l, k):
             return translations.get(l, {}).get(k, k)
 

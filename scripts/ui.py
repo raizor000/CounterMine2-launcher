@@ -7,21 +7,19 @@ import time
 import urllib.parse
 import urllib.request
 import zipfile
-
-
 from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF, Qt
 from PyQt6.QtCore import QSize, QUrl, QPoint, QObject, QThread, pyqtSlot, QSizeF, Qt, QPropertyAnimation, \
     QParallelAnimationGroup, QEasingCurve
 from PyQt6.QtGui import QDesktopServices, QPixmap, QFont, QIcon, QMovie, QFontDatabase, QPalette, QCursor, QActionGroup
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtWidgets import QPushButton, QStackedLayout, QGridLayout, QLabel, \
-    QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, \
     QTextBrowser, QSizePolicy, QGraphicsView, QHBoxLayout, QGraphicsOpacityEffect, \
     QGraphicsScene, QApplication, QMenu, QMessageBox
 from .constants import MODRINTH_TAB_INDEX
 from .constants import MODRINTH_TAB_INDEX, PLUGINS_ICON_CACHE
 from .utilties import *
+import traceback
+
 
 class HoverMenu(QMenu):
     def __init__(self, *args, **kwargs):
@@ -1085,7 +1083,8 @@ class LauncherUI(QWidget):
         try:
             while self.plugins_list_layout.count():
                 item = self.plugins_list_layout.takeAt(0)
-                if item.widget(): item.widget().deleteLater()
+                if item.widget():
+                    item.widget().deleteLater()
             self.market_icon_labels.clear()
 
             if not hasattr(self.launcher, 'plugin_manager'): return
@@ -1126,7 +1125,6 @@ class LauncherUI(QWidget):
                 self.plugins_list_layout.addWidget(card, row_offset + (i // 3), i % 3)
         except Exception as e:
             print(f"[UI] Error populating plugins: {e}")
-            import traceback
             traceback.print_exc()
             self._show_market_error()
 
@@ -2219,7 +2217,6 @@ class LauncherUI(QWidget):
         self.installed_mods_content.adjustSize()
 
     def _primary_screen(self):
-        from PyQt6.QtWidgets import QApplication
         return QApplication.primaryScreen()
 
     def _remove_installed_item(self, slug: str, item_type: str, filename: str = None):

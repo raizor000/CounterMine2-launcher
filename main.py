@@ -35,6 +35,9 @@ from scripts.fetcher import *
 from scripts.ui import *
 from scripts.utilties import *
 from scripts.debug_console import DebugConsoleWindow
+import winreg
+from scripts.internal.counterstrike2theme import CounterStrike2Theme
+
 
 QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
@@ -310,7 +313,6 @@ class LauncherApp(QtWidgets.QMainWindow):
 
     @property
     def is_cs2_theme_active(self) -> bool:
-        from scripts.internal.counterstrike2theme import CounterStrike2Theme
         return any(isinstance(p, CounterStrike2Theme) for p in self.plugin_manager.plugins) and sys.platform == "win32"
 
     def register_url_protocol(self):
@@ -319,8 +321,6 @@ class LauncherApp(QtWidgets.QMainWindow):
             return
 
         try:
-            import winreg
-
             if getattr(sys, 'frozen', False):
                 exe_path = sys.executable
             else:
@@ -347,7 +347,7 @@ class LauncherApp(QtWidgets.QMainWindow):
             self.write_log(f"Failed to register URL protocol: {e}")
 
     def fetch_remote_plugins(self):
-        repo_url = "https://raw.githubusercontent.com/raizor000/CounterMine2-launcher-plugins/main/plugins.json"
+        repo_url = "https://raw.githubusercontent.com/raizor000/CounterMine2-launcher-plugins/main/plugins.json" if self.lang == "ru_ru" else "https://raw.githubusercontent.com/raizor000/CounterMine2-launcher-plugins/main/plugins_en.json"
         try:
             self.write_log(f"[Market] Fetching plugins from: {repo_url}")
             response = requests.get(repo_url, timeout=5)

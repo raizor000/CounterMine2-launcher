@@ -7,6 +7,7 @@ from scripts.plugin_manager import BasePlugin
 from scripts.utilties import t
 import PyQt6.QtCore as QtCore
 from PyQt6 import QtGui, QtWidgets
+from scripts.utilties import SwitchButton
 
 translations = {
     "ru_ru": {
@@ -266,7 +267,6 @@ class RankedPlugin(BasePlugin):
         if not hasattr(ui, 'plugin_settings_layout'):
             return
 
-        from scripts.utilties import SwitchButton
         sound_layout = QHBoxLayout()
         self.sound_label = QLabel(t(self.app.lang, "ranked_sound_notification"))
         self.sound_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")

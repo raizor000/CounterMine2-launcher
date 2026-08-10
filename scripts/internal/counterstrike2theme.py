@@ -13,15 +13,16 @@ from panda3d import direct
 from panda3d.core import Filename, get_model_path
 from panda3d.core import loadPrcFileData, WindowProperties, Vec3, Vec4, AmbientLight, DirectionalLight, Shader, \
     PointLight, TransparencyAttrib, AntialiasAttrib, TextNode, Point2, DynamicTextFont, NodePath, \
-    LoaderFileTypeRegistry, TexturePool, DepthOffsetAttrib
+    LoaderFileTypeRegistry, TexturePool, DepthOffsetAttrib, GraphicsOutput, Texture
 from direct.showbase.ShowBase import ShowBase
 from scripts.plugin_manager import BasePlugin
-from PyQt6.QtGui import QFont, QCursor
-from PyQt6.QtCore import QTimer, QUrl
+import sys
 import os
-from panda3d.core import GraphicsOutput, Texture
 from scripts.utilties import DropDown
-
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
+from PyQt6.QtWidgets import *
+from scripts.utilties import SwitchButton
 
 translations = {
     "ru_ru": {
@@ -60,8 +61,7 @@ loadPrcFileData("", "notify-level-loader debug")
 loadPrcFileData("", "load-file-type p3assimp #f")
 
 
-import sys
-import os
+
 
 
 def get_base_path():
@@ -141,7 +141,6 @@ class BasePandaWidget(QtCore.QObject):
     def _internal_init_panda(self):
         try:
             print(f"[{self.__class__.__name__}] Starting Panda3D initialization...")
-            from panda3d.core import loadPrcFileData, WindowProperties, GraphicsOutput, Texture
             loadPrcFileData("", f"win-size {self.target_width} {self.target_height}")
 
             self.panda = ShowBase(windowType="offscreen")
@@ -159,7 +158,6 @@ class BasePandaWidget(QtCore.QObject):
 
             print(f"[{self.__class__.__name__}] SimplePBR initialization...")
 
-            import simplepbr
             pline = simplepbr.init(
                 enable_shadows=True,
                 use_normal_maps=True,
@@ -593,9 +591,7 @@ class NewsToggleButton(QtWidgets.QPushButton):
         painter.drawText(self.rect(), QtCore.Qt.AlignmentFlag.AlignCenter, self.text())
 
 
-from PyQt6.QtCore import *
-from PyQt6.QtGui import *
-from PyQt6.QtWidgets import *
+
 
 
 def fit_button_font(button: QPushButton, min_size=7, max_size=13):
@@ -712,8 +708,7 @@ class CounterStrike2Theme(BasePlugin):
         if not hasattr(ui, 'plugin_settings_layout'):
             return
 
-        from scripts.utilties import SwitchButton
-        
+
         time_layout = QtWidgets.QHBoxLayout()
         self.time_label = QtWidgets.QLabel(t(self.app.lang, "cs2_theme_night_time"))
         self.time_label.setStyleSheet("color: #dddddd; font-size: 11pt; background: transparent;")
@@ -1103,7 +1098,7 @@ class CounterStrike2Theme(BasePlugin):
                     }
                     QPushButton:checked {
                         background-color: #75bf0f;
-                        color: white;
+                        color: gray;
                     }
                     QPushButton::menu-indicator { image: none; width: 0px; padding: 0px;} 
                     """)
@@ -1118,8 +1113,6 @@ class CounterStrike2Theme(BasePlugin):
                         QMenu::item:checked { color: #2E7D32; }
                     """)
 
-            print(ui.play_btn.x(), ui.menu_btn.x())
-
             side_spacing = 10
 
             separator_style = "background-color: rgba(255, 255, 255, 150);"
@@ -1133,7 +1126,20 @@ class CounterStrike2Theme(BasePlugin):
                 i_btn_x = center_x + ui.play_btn.width() + ui.menu_btn.width() + side_spacing
                 i_btn_y = (ui.header_frame.height() - i_btn.height()) // 2
                 i_btn.move(i_btn_x, i_btn_y)
-                i_btn.setStyleSheet(ui.play_btn.styleSheet())
+                i_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: rgba(20,20,20,100);
+                        color: white;
+                        border-radius: 4px;
+                    }
+                    QPushButton:hover {
+                        background-color: rgba(20,20,20,140);
+                    }
+                    QPushButton:checked {
+                        background-color: #75bf0f;
+                        color: white;
+                    }
+                    """)
 
                 if not hasattr(self, 'right_separator'):
                     self.right_separator = QtWidgets.QFrame(ui.header_frame)
@@ -1161,7 +1167,7 @@ class CounterStrike2Theme(BasePlugin):
                 m_btn_y = (ui.header_frame.height() - m_btn.height()) // 2
                 m_btn.move(m_btn_x, m_btn_y)
 
-                m_btn.setStyleSheet(ui.play_btn.styleSheet())
+                m_btn.setStyleSheet(i_btn.styleSheet())
                 if not hasattr(self, 'left_separator2'):
                     self.left_separator2 = QtWidgets.QFrame(ui.header_frame)
                     self.left_separator2.setFrameShape(QtWidgets.QFrame.Shape.VLine)

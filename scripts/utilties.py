@@ -10,6 +10,19 @@ import minecraft_launcher_lib
 import psutil
 import requests
 
+from PyQt6.QtCore import pyqtSignal, QPropertyAnimation, Qt, QEasingCurve, QRectF, QTimer, QPointF, pyqtProperty
+from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath, QCursor, QLinearGradient
+from PyQt6.QtNetwork import QLocalSocket, QLocalServer
+from PyQt6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel, QGraphicsDropShadowEffect, QScrollArea, QHBoxLayout
+
+
+from .constants import *
+from .translations import translations
+import os
+from pathlib import Path
+from datetime import date
+
+
 try:
     if sys.platform == "win32":
         import win32gui
@@ -21,22 +34,12 @@ except ImportError:
     win32gui = None
     win32process = None
 
-from PIL import Image
-import os
-from pathlib import Path
 
 def get_resource_path(relative_path):
     if hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS) / relative_path
     return Path(__file__).resolve().parent.parent / relative_path
 
-from PyQt6.QtCore import pyqtSignal, QPropertyAnimation, Qt, QEasingCurve, QRectF, QTimer, QPointF, pyqtProperty
-from PyQt6.QtGui import QPainter, QColor, QBrush, QPainterPath, QCursor, QLinearGradient
-from PyQt6.QtNetwork import QLocalSocket, QLocalServer
-from PyQt6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel, QGraphicsDropShadowEffect
-
-from .constants import *
-from .translations import translations
 
 
 def is_mod_installed(mc_dir: str, slug: str, version: str) -> bool:
@@ -178,7 +181,6 @@ class AnimatedCountLabel(QLabel):
         self.lang = lang
         self.setText(t(self.lang, "online_label").format(count=self._current_value))
         
-from datetime import date
 
 
 def is_winter_period() -> bool:
@@ -513,10 +515,6 @@ class SnowOverlay(QWidget):
                     pix
                 )
 
-from PyQt6.QtWidgets import QLabel, QScrollArea, QWidget, QHBoxLayout
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-
-from PyQt6.QtCore import QTimer
 
 class SmoothScrollArea(QScrollArea):
     def __init__(self, parent=None):
