@@ -210,15 +210,15 @@ def is_autumn() -> bool:
 
 def is_running():
     socket = QLocalSocket()
-    socket.connectToServer("countermine_launcher")
+    socket.connectToServer("countermine_launcher_5.0")
     if socket.waitForConnected(100):
         return True
     return False
 
 def create_server(window):
     server = QLocalServer()
-    server.removeServer("countermine_launcher")
-    server.listen("countermine_launcher")
+    server.removeServer("countermine_launcher_5.0")
+    server.listen("countermine_launcher_5.0")
 
     def handle_connection():
         client = server.nextPendingConnection()
