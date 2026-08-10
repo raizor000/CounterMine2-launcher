@@ -41,6 +41,11 @@ from scripts.internal.counterstrike2theme import CounterStrike2Theme
 
 QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 
+# @TODO log sender mirror
+# @TODO fabric loader mirror
+# @TODO anti-cheat module installer
+# @TODO button remover optional installer
+# @TODO disable qt log
 
 class _StdoutRedirector:
     _ERROR_KEYWORDS = (
@@ -775,7 +780,9 @@ class LauncherApp(QtWidgets.QMainWindow):
             "saved chunk nbt for",
             "ignoring chunk since",
             "unable to play unknown",
-            "codepoint"
+            "codepoint",
+            "ubo",
+            "chunk"
         )
 
         filtered = []
@@ -1033,6 +1040,9 @@ class LauncherApp(QtWidgets.QMainWindow):
             if removed:
                 self.ui.update_resourcepack_status(slug, "remove")
         self.ui.refresh_installed_mods_display()
+
+    def closeEvent(self, a0):
+        self.exit_launcher()
 
     def exit_launcher(self):
         try:
