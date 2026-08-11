@@ -138,6 +138,7 @@ class LauncherApp(QtWidgets.QMainWindow):
         self.ip = "0.0.0.0"
         self.minecraft_pid = -1
         self.selected_version = VERSION
+        self._launch_after_login = False
 
         self.setWindowTitle("CounterMine2 Launcher")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -395,6 +396,11 @@ class LauncherApp(QtWidgets.QMainWindow):
         if self.nickname:
             self.ui.set_play_enabled(True)
             self.ui.set_play_status(t(self.lang, "play_button"))
+
+        if self._launch_after_login:
+            self._launch_after_login = False
+            self.write_log("[Auth] Продолжение запуска после входа в аккаунт...")
+            self._start_game_launch()
 
     def on_auth_failed(self, error):
         self.write_error(f"[Auth] Ошибка авторизации: {error}")
@@ -734,6 +740,19 @@ class LauncherApp(QtWidgets.QMainWindow):
     def write_error(self, msg: str):
         self.write_log(msg, "ERROR")
 
+    def _start_game_launch(self):
+        """Helper to contain the launch logic after checks."""
+        mem = self.default_memory_mb()
+        if mem == 0:
+            self._launching = False
+            self.write_warn("Недостаточно памяти для запуска")
+            self.ui.set_play_enabled(True)
+            return
+        self.write_log(f"[Память] Выделяем {mem} MB для Minecraft")
+        self.options['jvmArguments'] = [f"-Xmx{int(mem)}M"]
+        QtCore.QTimer.singleShot(100,
+                                 lambda: threading.Thread(target=self._install_and_launch, daemon=True).start())
+
     def on_play_clicked(self):
         self._launching = True
         self.ui.set_play_enabled(False)
@@ -747,21 +766,13 @@ class LauncherApp(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.StandardButton.Yes
             )
             if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                self._launch_after_login = True
                 self.auth_manager.start_login()
             else:
                 self._launching = False
                 self.ui.set_play_enabled(True)
-                return 1
-
-        mem = self.default_memory_mb()
-        if mem == 0:
-            self._launching = False
-            self.write_warn("Недостаточно памяти для запуска")
             return
-        self.write_log(f"[Память] Выделяем {mem} MB для Minecraft")
-        self.options['jvmArguments'] = [f"-Xmx{int(mem)}M"]
-        QtCore.QTimer.singleShot(100,
-                                 lambda: threading.Thread(target=self._install_and_launch, daemon=True).start())
+        self._start_game_launch()
 
     def submit_logfile(self):
         ts = int(time.time())

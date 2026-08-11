@@ -66,14 +66,16 @@ loadPrcFileData("", "load-file-type p3assimp #f")
 
 def get_base_path():
     if getattr(sys, 'frozen', False):
-        return os.path.join(sys._MEIPASS, "scripts", "internal")
-    else:
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)))
+        # PyInstaller/Nuitka
+        base_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        return os.path.join(base_dir, "scripts", "internal")
+    # Development
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)))
 
 
 get_model_path().prepend_directory(Filename.from_os_specific(get_base_path()))
 
-if getattr(sys, 'frozen', False):
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     vfs = VirtualFileSystem.getGlobalPtr()
     vfs.mount(Filename.from_os_specific(sys._MEIPASS), ".", 0)
     vfs.mount(Filename.from_os_specific(sys._MEIPASS), "/", 0)
@@ -82,10 +84,6 @@ if getattr(sys, 'frozen', False):
 
     shaders_path = os.path.join(sys._MEIPASS, "scripts", "internal", "3D", "shaders")
     vfs.mount(Filename.from_os_specific(shaders_path), "/3D/shaders", 0)
-
-    pbr_path = os.path.join(sys._MEIPASS, 'simplepbr')
-    if os.path.exists(pbr_path):
-        get_model_path().append_directory(pbr_path)
 
 AVAILABLE_MAPS = {
     "Anubis": "3D/anubis.glb",

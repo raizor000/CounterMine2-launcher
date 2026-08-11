@@ -35,10 +35,13 @@ except ImportError:
     win32process = None
 
 
+
 def get_resource_path(relative_path):
-    if hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS) / relative_path
-    return Path(__file__).resolve().parent.parent / relative_path
+    if getattr(sys, 'frozen', False):    
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    else:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
 
