@@ -35,7 +35,7 @@ translations = {
 def t(lang, key):
     return translations.get(lang, {}).get(key, key)
 
-QUEUE_URL = "http://185.246.223.118:25593/ranked/api"
+QUEUE_URL = "https://cm2ranked.xyz/ranked/api"
 
 class QueueFetcher(QtCore.QObject):
     queueFetched = QtCore.pyqtSignal(list)
