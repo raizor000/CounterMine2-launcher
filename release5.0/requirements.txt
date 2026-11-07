@@ -1,0 +1,11 @@
+PyQt6>=6.6,<7
+PyQt6-WebEngine>=6.6,<7
+minecraft-launcher-lib>=8,<9
+requests>=2.32.4,<3
+packaging>=24,<27
+psutil>=6,<8
+mcstatus>=12,<13
+panda3d>=1.10.15,<1.11
+panda3d-gltf>=1.3,<2
+panda3d-simplepbr>=0.13,<0.14
+pypresence>=4.3,<5

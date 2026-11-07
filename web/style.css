@@ -1,0 +1,14 @@
+.top_name {
+    text-align: left;
+    color: aliceblue;
+    font: 14px "Pixy";
+}
+
+@font-face {
+    font-family: 'PressStart2P';
+    src: url('assets/PressStart2P-Regular.ttf');
+}
+@font-face {
+    font-family: 'Pixy';
+    src: url('assets/PIXY.ttf');
+}
